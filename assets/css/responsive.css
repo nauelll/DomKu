@@ -1,0 +1,158 @@
+/* ============================================
+   DompetKu — responsive.css
+   Mobile-first overrides. Breakpoints: 1024, 768, 640.
+   ============================================ */
+
+/* ---------- Tablet landscape (≤1024) ---------- */
+@media (max-width: 1024px) {
+  :root { --sidebar-w: 220px; }
+
+  .chart-grid { grid-template-columns: 1fr; }
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- Tablet portrait (≤768) ---------- */
+@media (max-width: 768px) {
+  :root { --sp-9: 40px; --sp-10: 56px; }
+
+  /* Show menu toggle, drawer sidebar */
+  .menu-toggle { display: inline-flex !important; }
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    transform: translateX(-100%);
+    transition: transform var(--dur) var(--ease-out);
+    box-shadow: var(--shadow-xl);
+  }
+  .app-shell.sidebar-open .sidebar { transform: translateX(0); }
+  .app-shell.sidebar-open .sidebar-backdrop { opacity: 1; pointer-events: auto; }
+
+  /* Page padding tighter */
+  .page-mount { padding: var(--sp-4); }
+
+  /* Navbar: hide brand text on mobile */
+  .brand-name { display: none; }
+
+  /* Page head stacked */
+  .page-head { flex-direction: column; align-items: stretch; }
+  .page-head-actions { width: 100%; }
+  .page-head-actions .btn { flex: 1; }
+
+  /* Form rows stack */
+  .form-row { grid-template-columns: 1fr; }
+
+  /* Toolbar wraps */
+  .toolbar { padding: var(--sp-2); }
+  .toolbar .search-box { max-width: none; width: 100%; flex-basis: 100%; }
+  .toolbar .select-sm { flex: 1; min-width: 0; }
+
+  /* Modal full-width */
+  .modal { max-width: 100%; margin: 0; }
+  .modal-body { padding: var(--sp-4); }
+
+  /* Toast full-width */
+  .toast-container {
+    top: auto;
+    bottom: var(--sp-4);
+    left: var(--sp-4);
+    right: var(--sp-4);
+    max-width: none;
+  }
+  .toast { min-width: 0; }
+
+  /* Balance hero text smaller */
+  .balance-amount { font-size: 1.75rem; }
+  .balance-meta { gap: var(--sp-4); flex-wrap: wrap; }
+
+  /* Stat grid 2 columns on tablet */
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Seg control wrap */
+  .seg-control { width: 100%; }
+  .seg-btn { flex: 1; text-align: center; }
+
+  /* Settings rows stack */
+  .setting-row { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+  .setting-row > div { width: 100%; }
+  .setting-row select, .setting-row button { width: 100%; }
+}
+
+/* ---------- Phone (≤640) ---------- */
+@media (max-width: 640px) {
+  :root { --sp-9: 32px; --sp-8: 24px; }
+
+  h1 { font-size: 1.375rem; }
+  h2 { font-size: 1.125rem; }
+
+  /* Stat grid single column on small phones */
+  .stat-grid { grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+  .stat-card { padding: var(--sp-3); gap: var(--sp-2); }
+  .stat-icon { width: 36px; height: 36px; }
+  .stat-icon svg { width: 18px; height: 18px; }
+  .stat-value { font-size: 0.9375rem; }
+  .stat-label { font-size: 0.6875rem; }
+
+  /* Balance hero */
+  .balance-hero { padding: var(--sp-5); }
+  .balance-amount { font-size: 1.5rem; }
+
+  /* Page padding tighter */
+  .page-mount { padding: var(--sp-3); }
+  .page { gap: var(--sp-4); }
+
+  /* Card padding tighter */
+  .card { padding: var(--sp-4); border-radius: var(--radius-md); }
+
+  /* Calendar cell text smaller */
+  .cal-day { font-size: 0.75rem; }
+  .cal-amount { font-size: 0.625rem; }
+  .cal-count { display: none; }
+
+  /* Always show tx actions on mobile (no hover) */
+  .tx-actions { opacity: 1; }
+  .cat-item .tx-actions { opacity: 1; }
+
+  /* Modal: bottom sheet style */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    transform: translateY(100%);
+  }
+  .modal-overlay.show .modal { transform: translateY(0); }
+  .modal-close { top: var(--sp-2); right: var(--sp-2); }
+
+  /* Lock screen input smaller */
+  .lock-card #lockInput { font-size: 1.25rem; padding: var(--sp-3); }
+
+  /* Saving grid single column */
+  .saving-grid { grid-template-columns: 1fr; }
+
+  /* Search results stack */
+  .search-result-type { font-size: 0.625rem; }
+
+  /* Charts smaller height */
+  .chart-card { min-height: 220px; }
+  .chart-card canvas { height: 200px !important; }
+
+  /* Reports data table: horizontal scroll */
+  .data-table { font-size: 0.75rem; }
+  .data-table th, .data-table td { padding: var(--sp-2) var(--sp-3); }
+
+  /* Tx summary */
+  .tx-summary { grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+  .summary-card { padding: var(--sp-3); }
+  .summary-card strong { font-size: 0.9375rem; }
+}
+
+/* ---------- Very small (≤380) ---------- */
+@media (max-width: 380px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .stat-card { flex-direction: row; }
+  .page-head-actions { flex-direction: column; }
+  .page-head-actions .btn { width: 100%; }
+  .navbar { padding: 0 var(--sp-3); }
+  .navbar-actions .icon-btn { width: 36px; height: 36px; }
+  .brand-mark { width: 28px; height: 28px; font-size: 0.875rem; }
+}
