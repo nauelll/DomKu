@@ -19,26 +19,96 @@
       return wrap;
     },
 
-    /** Amount input with currency formatting. */
+    /** Amount input with currency formatting (Indonesian: dots as thousand separators). */
     amount(label, opts = {}) {
       const { id, value = 0, required = false, currency = 'IDR' } = opts;
       const wrap = document.createElement('div');
       wrap.className = 'form-group';
+      // Format initial value: number → "13.844.000" or empty if 0
+      const initialValue = value ? Utils.formatAmount(value) : '';
       wrap.innerHTML = `
         <label for="${id}">${label}${required ? ' <span class="req">*</span>' : ''}</label>
         <div class="amount-input">
           <span class="amount-prefix">Rp</span>
-          <input id="${id}" name="${id}" type="text" inputmode="numeric" value="${value ? Utils.formatNumber(value) : ''}" placeholder="0" ${required ? 'required' : ''}>
+          <input id="${id}" name="${id}" type="text" inputmode="numeric" value="${Utils.escapeHtml(initialValue)}" placeholder="0" autocomplete="off" ${required ? 'required' : ''}>
         </div>`;
       const input = wrap.querySelector('input');
-      input.addEventListener('input', () => {
-        const n = Utils.parseNumber(input.value);
-        const pos = input.selectionStart;
-        const oldLen = input.value.length;
-        input.value = n ? Utils.formatNumber(n) : '';
-        const newLen = input.value.length;
-        input.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen));
+
+      /**
+       * Handle input: parse → format → restore cursor position by digit count.
+       * Cursor tracking is based on DIGIT count (not character count) so that
+       * typing, pasting, deleting, and editing in the middle all work correctly.
+       */
+      function formatInput() {
+        const cursorPos = input.selectionStart || 0;
+        const oldValue = input.value;
+
+        // Count digits BEFORE cursor in old value
+        const digitsBeforeCursor = (oldValue.slice(0, cursorPos).match(/\d/g) || []).length;
+
+        // Parse to a pure number (Indonesian-aware)
+        const num = Utils.parseNumber(oldValue);
+        const newValue = num > 0 ? Utils.formatAmount(num) : '';
+
+        // Avoid resetting if value didn't actually change (prevents cursor jump on letter input)
+        if (oldValue === newValue) return;
+
+        input.value = newValue;
+
+        // Restore cursor position based on digit count
+        if (!newValue) {
+          input.setSelectionRange(0, 0);
+          return;
+        }
+
+        // Walk through newValue, count digits, stop when we reach digitsBeforeCursor
+        let digitCount = 0;
+        let newCursorPos = newValue.length; // default: end
+        for (let i = 0; i < newValue.length; i++) {
+          if (/\d/.test(newValue[i])) {
+            digitCount++;
+            if (digitCount === digitsBeforeCursor) {
+              newCursorPos = i + 1;
+              break;
+            }
+          }
+        }
+        // If cursor was after all digits (e.g. user typed at the end), place at end
+        if (digitCount < digitsBeforeCursor) {
+          newCursorPos = newValue.length;
+        }
+        input.setSelectionRange(newCursorPos, newCursorPos);
+      }
+
+      input.addEventListener('input', formatInput);
+
+      // Block non-numeric keystrokes (allow: digits, Backspace, Delete, Tab, Arrow keys, Ctrl+A/C/V/X)
+      input.addEventListener('keydown', (e) => {
+        const allowed = ['Backspace','Delete','Tab','Escape','Enter','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
+        if (allowed.includes(e.key)) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return; // allow copy/paste/cut
+        if (/^\d$/.test(e.key)) return; // digits
+        // Block everything else (letters, symbols, etc.)
+        e.preventDefault();
       });
+
+      // Handle paste: clean and reformat
+      input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        const num = Utils.parseNumber(text);
+        if (num > 0) {
+          input.value = Utils.formatAmount(num);
+        } else {
+          input.value = '';
+        }
+        // Place cursor at end after paste
+        requestAnimationFrame(() => {
+          const len = input.value.length;
+          input.setSelectionRange(len, len);
+        });
+      });
+
       return wrap;
     },
 
