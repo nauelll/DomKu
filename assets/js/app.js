@@ -51,6 +51,9 @@
   // 4. Bind global actions
   bindGlobalActions();
 
+  // 4b. Inject FAB for mobile (quick add transaction)
+  injectFAB();
+
   // 5. Register routes (pages already self-register on load)
   Router.register('not-found', (c) => {
     c.innerHTML = `<div class="empty-state"><h2>404</h2><p>Halaman tidak ditemukan.</p><a href="#/dashboard" class="btn btn-primary">Kembali ke Dashboard</a></div>`;
@@ -85,6 +88,34 @@
   }
 
   /* ---------- Helpers ---------- */
+
+  function injectFAB() {
+    // Only show FAB on mobile (screen width <= 768)
+    if (window.innerWidth > 768) return;
+    // Don't double-inject
+    if (document.querySelector('.fab')) return;
+
+    const fab = document.createElement('button');
+    fab.className = 'fab';
+    fab.setAttribute('aria-label', 'Tambah transaksi cepat');
+    fab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    fab.addEventListener('click', () => {
+      // Show a quick menu: income or expense
+      const choice = confirm('OK = Tambah Pemasukan\nCancel = Tambah Pengeluaran');
+      TransactionForm.open({ type: choice ? 'income' : 'expense', onSaved: () => Router.refresh() });
+    });
+    document.body.appendChild(fab);
+
+    // Show/hide FAB on window resize
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (window.innerWidth > 768) fab.style.display = 'none';
+        else fab.style.display = 'flex';
+      }, 150);
+    });
+  }
 
   function bindGlobalActions() {
     document.addEventListener('click', (e) => {

@@ -4,7 +4,7 @@
    network-first for navigations with offline fallback.
    ============================================ */
 
-const CACHE_VERSION = 'domku-v2';
+const CACHE_VERSION = 'domku-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -54,6 +54,8 @@ const APP_SHELL = [
   './assets/icons/apple-touch-icon.png',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
+  './assets/icons/icon-maskable-192.png',
+  './assets/icons/icon-maskable-512.png',
   './assets/images/logo-square.png',
   './assets/images/logo-full.png',
   './assets/images/og-image.png'

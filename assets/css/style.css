@@ -142,6 +142,7 @@ html {
   font-size: 16px;
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 body {
   font-family: var(--font);
@@ -153,8 +154,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   min-height: 100vh;
+  min-height: 100dvh; /* dynamic viewport height for mobile */
   overflow-x: hidden;
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  /* Safe area insets for notch / status bar (Android & iOS) */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* Prevent text size adjust on orientation change */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Overscroll behavior */
+  overscroll-behavior-y: none;
 }
 img, svg, video { display: block; max-width: 100%; height: auto; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -422,19 +431,21 @@ small { font-size: 0.8125rem; }
 
 /* ---------- Icon button ---------- */
 .icon-btn {
-  width: 38px; height: 38px;
+  width: 40px; height: 40px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   transition: all var(--dur-fast) var(--ease);
   flex-shrink: 0;
   position: relative;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .icon-btn:hover { background: var(--bg-soft); color: var(--text); }
-.icon-btn:active { transform: scale(0.95); }
-.icon-btn.sm { width: 30px; height: 30px; }
+.icon-btn:active { transform: scale(0.92); background: var(--bg-soft); }
+.icon-btn.sm { width: 34px; height: 34px; min-width: 34px; }
 .icon-btn.sm svg { width: 14px; height: 14px; }
-.icon-btn svg { width: 18px; height: 18px; }
+.icon-btn svg { width: 20px; height: 20px; }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -453,11 +464,14 @@ small { font-size: 0.8125rem; }
   text-decoration: none;
   user-select: none;
   letter-spacing: -0.01em;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 40px; /* touch-friendly */
 }
 .btn svg { width: 16px; height: 16px; }
-.btn:active { transform: translateY(0.5px); }
-.btn-sm { padding: var(--sp-2) var(--sp-3); font-size: 0.8125rem; }
-.btn-lg { padding: var(--sp-4) var(--sp-6); font-size: 0.9375rem; }
+.btn:active { transform: translateY(0.5px) scale(0.98); }
+.btn-sm { padding: var(--sp-2) var(--sp-3); font-size: 0.8125rem; min-height: 34px; }
+.btn-lg { padding: var(--sp-4) var(--sp-6); font-size: 0.9375rem; min-height: 48px; }
 .btn-block { display: flex; width: 100%; }
 
 .btn-primary {
@@ -630,10 +644,20 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
   text-align: center;
   padding: var(--sp-10) var(--sp-5);
   color: var(--text-muted);
+  position: relative;
 }
 .empty-state svg { width: 56px; height: 56px; margin: 0 auto var(--sp-4); opacity: 0.35; }
 .empty-state h3 { color: var(--text); margin-bottom: var(--sp-2); font-size: 1.125rem; font-weight: 700; }
 .empty-state p { font-size: 0.9375rem; max-width: 360px; margin: 0 auto; }
+.empty-state .empty-illustration {
+  width: 80px; height: 80px;
+  margin: 0 auto var(--sp-4);
+  border-radius: var(--radius-2xl);
+  background: linear-gradient(135deg, var(--accent-light), transparent);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+}
+.empty-state .empty-illustration svg { width: 36px; height: 36px; opacity: 0.7; margin: 0; }
 .empty-mini { padding: var(--sp-5); text-align: center; color: var(--text-muted); font-size: 0.875rem; }
 
 /* ---------- Skeleton ---------- */

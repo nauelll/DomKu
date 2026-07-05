@@ -50,11 +50,22 @@
      * Format angka untuk tampilan input nominal (Indonesian: dot as thousand separator).
      * Returns empty string for 0 so the input appears empty when cleared.
      * Example: 13844000 → "13.844.000"
+     * Defensive: never throws, always returns a string.
      */
     formatAmount(n) {
-      const num = Number(n);
-      if (!isFinite(num) || num === 0) return '';
-      return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(num);
+      try {
+        const num = Number(n);
+        if (!isFinite(num) || num === 0) return '';
+        // Use Intl.NumberFormat for proper Indonesian formatting
+        return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(num);
+      } catch (e) {
+        // Fallback: manual formatting with dots
+        const num = Number(n) || 0;
+        if (!isFinite(num) || num === 0) return '';
+        const parts = Math.abs(num).toFixed(0).split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return (num < 0 ? '-' : '') + parts.join(',');
+      }
     },
     /** Compact format: 1840 → "1.8k", 1250000 → "1.3M" */
     formatShort(n) {

@@ -1,19 +1,26 @@
 /* ============================================
    DompetKu — responsive.css
-   Mobile-first overrides. Breakpoints: 1024, 768, 640.
+   Mobile-first responsive design.
+   Focus: Perfect experience on Android & iOS phones.
+   Breakpoints: 1024, 768, 640, 380
    ============================================ */
 
-/* ---------- Tablet landscape (≤1024) ---------- */
+/* ---------- Large tablet / small desktop (≤1024) ---------- */
 @media (max-width: 1024px) {
   :root { --sidebar-w: 220px; }
 
   .chart-grid { grid-template-columns: 1fr; }
   .dashboard-grid { grid-template-columns: 1fr; }
+  .page-mount { padding: var(--sp-5); }
 }
 
-/* ---------- Tablet portrait (≤768) ---------- */
+/* ---------- Tablet portrait (≤768) — Drawer sidebar ---------- */
 @media (max-width: 768px) {
-  :root { --sp-9: 40px; --sp-10: 56px; }
+  :root {
+    --sp-9: 40px;
+    --sp-10: 56px;
+    --navbar-h: 56px;
+  }
 
   /* Show menu toggle, drawer sidebar */
   .menu-toggle { display: inline-flex !important; }
@@ -22,131 +29,195 @@
     top: 0; left: 0; bottom: 0;
     transform: translateX(-100%);
     transition: transform var(--dur) var(--ease-out);
-    box-shadow: var(--shadow-xl);
+    box-shadow: var(--shadow-2xl);
+    width: 280px;
+    z-index: 60;
   }
   .app-shell.sidebar-open .sidebar { transform: translateX(0); }
   .app-shell.sidebar-open .sidebar-backdrop { opacity: 1; pointer-events: auto; }
 
   /* Page padding tighter */
-  .page-mount { padding: var(--sp-4); }
+  .page-mount {
+    padding: var(--sp-4) var(--sp-4) calc(var(--sp-4) + 80px); /* bottom space for FAB */
+  }
 
-  /* Navbar: hide brand text on mobile */
+  /* Navbar: hide brand text on mobile, keep logo only */
+  .navbar { padding: 0 var(--sp-4); }
   .brand-name { display: none; }
+  .navbar .brand-mark-img { width: 30px; height: 30px; }
 
   /* Page head stacked */
-  .page-head { flex-direction: column; align-items: stretch; }
+  .page-head { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
+  .page-head h1 { font-size: 1.5rem; }
   .page-head-actions { width: 100%; }
-  .page-head-actions .btn { flex: 1; }
+  .page-head-actions .btn { flex: 1; min-height: 44px; }
 
   /* Form rows stack */
   .form-row { grid-template-columns: 1fr; }
 
   /* Toolbar wraps */
-  .toolbar { padding: var(--sp-2); }
+  .toolbar { padding: var(--sp-3); gap: var(--sp-2); }
   .toolbar .search-box { max-width: none; width: 100%; flex-basis: 100%; }
-  .toolbar .select-sm { flex: 1; min-width: 0; }
+  .toolbar .select-sm { flex: 1; min-width: 0; min-height: 40px; }
 
-  /* Modal full-width */
-  .modal { max-width: 100%; margin: 0; }
-  .modal-body { padding: var(--sp-4); }
+  /* Modal: bottom sheet style for mobile */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    transform: translateY(100%);
+  }
+  .modal-overlay.show .modal { transform: translateY(0); }
+  .modal-body { padding: var(--sp-5) var(--sp-4) calc(var(--sp-5) + env(safe-area-inset-bottom)); }
+  .modal-close { top: var(--sp-3); right: var(--sp-3); width: 36px; height: 36px; }
 
-  /* Toast full-width */
+  /* Toast: bottom-center full-width */
   .toast-container {
     top: auto;
-    bottom: var(--sp-4);
+    bottom: calc(var(--sp-4) + env(safe-area-inset-bottom));
     left: var(--sp-4);
     right: var(--sp-4);
     max-width: none;
   }
-  .toast { min-width: 0; }
+  .toast { min-width: 0; max-width: 100%; }
 
   /* Balance hero text smaller */
-  .balance-amount { font-size: 1.75rem; }
+  .balance-hero { padding: var(--sp-5); }
+  .balance-amount { font-size: 1.875rem; }
   .balance-meta { gap: var(--sp-4); flex-wrap: wrap; }
 
   /* Stat grid 2 columns on tablet */
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+  .stat-card { padding: var(--sp-4); gap: var(--sp-3); min-height: 88px; }
 
   /* Seg control wrap */
   .seg-control { width: 100%; }
-  .seg-btn { flex: 1; text-align: center; }
+  .seg-btn { flex: 1; text-align: center; min-height: 40px; }
 
   /* Settings rows stack */
   .setting-row { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
   .setting-row > div { width: 100%; }
-  .setting-row select, .setting-row button { width: 100%; }
+  .setting-row select, .setting-row button { width: 100%; min-height: 40px; }
+
+  /* FAB (Floating Action Button) — quick add on mobile */
+  .fab {
+    position: fixed;
+    bottom: calc(var(--sp-5) + env(safe-area-inset-bottom));
+    right: var(--sp-5);
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px var(--accent-glow), 0 4px 8px rgba(15, 23, 42, 0.15);
+    z-index: 50;
+    border: none;
+    cursor: pointer;
+    transition: all var(--dur) var(--ease-spring);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .fab:active { transform: scale(0.92); }
+  .fab svg { width: 24px; height: 24px; }
+  .fab:active { box-shadow: 0 4px 12px var(--accent-glow); }
+
+  /* Tx items: smaller touch targets but still accessible */
+  .tx-item { padding: var(--sp-3); }
+  .tx-actions { opacity: 1; } /* always show on mobile */
+
+  /* Calendar cells: smaller but still tappable */
+  .cal-cell { min-height: 60px; padding: var(--sp-2); }
 }
 
 /* ---------- Phone (≤640) ---------- */
 @media (max-width: 640px) {
-  :root { --sp-9: 32px; --sp-8: 24px; }
+  :root {
+    --sp-9: 32px;
+    --sp-8: 24px;
+    --sp-7: 20px;
+    --sp-6: 16px;
+  }
 
   h1 { font-size: 1.375rem; }
   h2 { font-size: 1.125rem; }
 
-  /* Stat grid single column on small phones */
+  /* Stat grid: 2 columns on phones */
   .stat-grid { grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
-  .stat-card { padding: var(--sp-3); gap: var(--sp-2); }
+  .stat-card { padding: var(--sp-3); gap: var(--sp-2); min-height: 80px; border-radius: var(--radius-md); }
   .stat-icon { width: 36px; height: 36px; }
   .stat-icon svg { width: 18px; height: 18px; }
-  .stat-value { font-size: 0.9375rem; }
-  .stat-label { font-size: 0.6875rem; }
+  .stat-value { font-size: 1rem; }
+  .stat-label { font-size: 0.625rem; }
 
-  /* Balance hero */
-  .balance-hero { padding: var(--sp-5); }
-  .balance-amount { font-size: 1.5rem; }
+  /* Balance hero — compact */
+  .balance-hero { padding: var(--sp-5); border-radius: var(--radius-lg); }
+  .balance-amount { font-size: 1.625rem; }
+  .balance-label { font-size: 0.6875rem; }
+  .balance-meta { gap: var(--sp-5); }
+  .meta-value { font-size: 0.9375rem; }
 
   /* Page padding tighter */
-  .page-mount { padding: var(--sp-3); }
+  .page-mount { padding: var(--sp-3) var(--sp-3) calc(var(--sp-3) + 80px); }
   .page { gap: var(--sp-4); }
 
   /* Card padding tighter */
-  .card { padding: var(--sp-4); border-radius: var(--radius-md); }
+  .card { padding: var(--sp-4); border-radius: var(--radius-md); gap: var(--sp-3); }
+  .card-head h3 { font-size: 0.9375rem; }
 
-  /* Calendar cell text smaller */
+  /* Chart cards: shorter height */
+  .chart-card { min-height: 220px; }
+  .chart-card canvas { height: 180px !important; }
+
+  /* Calendar: compact cells */
   .cal-day { font-size: 0.75rem; }
   .cal-amount { font-size: 0.625rem; }
   .cal-count { display: none; }
+  .cal-cell { min-height: 52px; padding: 4px; border-radius: var(--radius-sm); }
 
   /* Always show tx actions on mobile (no hover) */
   .tx-actions { opacity: 1; }
   .cat-item .tx-actions { opacity: 1; }
 
-  /* Modal: bottom sheet style */
-  .modal-overlay { align-items: flex-end; padding: 0; }
-  .modal {
-    max-width: 100%;
-    max-height: 92vh;
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    transform: translateY(100%);
-  }
-  .modal-overlay.show .modal { transform: translateY(0); }
-  .modal-close { top: var(--sp-2); right: var(--sp-2); }
-
   /* Lock screen input smaller */
-  .lock-card #lockInput { font-size: 1.25rem; padding: var(--sp-3); }
+  .lock-card #lockInput { font-size: 1.25rem; padding: var(--sp-3); letter-spacing: 0.5em; }
+  .lock-logo-img { width: 72px; height: 72px; }
 
   /* Saving grid single column */
   .saving-grid { grid-template-columns: 1fr; }
 
   /* Search results stack */
+  .search-result { padding: var(--sp-3); }
   .search-result-type { font-size: 0.625rem; }
-
-  /* Charts smaller height */
-  .chart-card { min-height: 220px; }
-  .chart-card canvas { height: 200px !important; }
+  .search-result-label { font-size: 0.875rem; }
 
   /* Reports data table: horizontal scroll */
   .data-table { font-size: 0.75rem; }
   .data-table th, .data-table td { padding: var(--sp-2) var(--sp-3); }
 
-  /* Tx summary */
+  /* Tx summary — 2 columns */
   .tx-summary { grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
-  .summary-card { padding: var(--sp-3); }
+  .summary-card { padding: var(--sp-3); border-radius: var(--radius-md); }
   .summary-card strong { font-size: 0.9375rem; }
+
+  /* Dashboard grid single column */
+  .dashboard-grid { grid-template-columns: 1fr; }
+
+  /* Forms: smaller inputs */
+  input, select, textarea { padding: var(--sp-3); font-size: 0.9375rem; min-height: 44px; }
+  .amount-input input { padding: var(--sp-3) var(--sp-4) var(--sp-3) 0; }
+
+  /* Debt/saving actions wrap nicely */
+  .debt-actions { gap: var(--sp-1); }
+  .debt-actions .btn { flex: 1; min-height: 36px; padding: var(--sp-2) var(--sp-3); font-size: 0.75rem; }
+
+  /* FAB position adjust */
+  .fab { bottom: calc(var(--sp-4) + env(safe-area-inset-bottom)); right: var(--sp-4); }
 }
 
-/* ---------- Very small (≤380) ---------- */
+/* ---------- Small phones (≤380) ---------- */
 @media (max-width: 380px) {
   .stat-grid { grid-template-columns: 1fr; }
   .stat-card { flex-direction: row; }
@@ -154,5 +225,64 @@
   .page-head-actions .btn { width: 100%; }
   .navbar { padding: 0 var(--sp-3); }
   .navbar-actions .icon-btn { width: 36px; height: 36px; }
-  .brand-mark { width: 28px; height: 28px; font-size: 0.875rem; }
+  .navbar .brand-mark-img { width: 28px; height: 28px; }
+  .page-head h1 { font-size: 1.25rem; }
+
+  /* Balance hero very compact */
+  .balance-hero { padding: var(--sp-4); }
+  .balance-amount { font-size: 1.375rem; }
+  .balance-meta { gap: var(--sp-3); }
+  .meta-value { font-size: 0.875rem; }
+
+  /* Lock screen */
+  .lock-card #lockInput { font-size: 1.125rem; letter-spacing: 0.4em; }
+  .lock-logo-img { width: 64px; height: 64px; }
+}
+
+/* ---------- Landscape phone (height < 500px) ---------- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .lock-card { gap: var(--sp-2); }
+  .lock-logo-img { width: 56px; height: 56px; margin-bottom: var(--sp-1); }
+  .lock-card h1 { font-size: 1.25rem; margin-top: 0; }
+  .lock-card p { font-size: 0.8125rem; }
+  .lock-card form { margin-top: var(--sp-2); }
+  .lock-card #lockInput { font-size: 1rem; padding: var(--sp-2); }
+}
+
+/* ---------- PWA display mode (standalone) ---------- */
+@media all and (display-mode: standalone) {
+  /* When installed as PWA, account for status bar */
+  .navbar {
+    padding-top: env(safe-area-inset-top);
+    height: calc(var(--navbar-h) + env(safe-area-inset-top));
+  }
+  .page-mount {
+    padding-bottom: calc(var(--sp-7) + env(safe-area-inset-bottom));
+  }
+}
+
+/* ---------- Print ---------- */
+@media print {
+  .navbar, .sidebar, .menu-toggle, .btn, .icon-btn, .fab { display: none !important; }
+  body { background: #fff; color: #000; padding: 0; }
+  .card { border-color: #ddd; box-shadow: none; page-break-inside: avoid; }
+  .page-mount { padding: 0; }
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Hover only on devices that support hover (skip touch) ---------- */
+@media (hover: none) {
+  /* Disable hover-only effects on touch devices */
+  .stat-card:hover { transform: none; box-shadow: none; }
+  .tx-item:hover { transform: none; }
+  .btn:hover { transform: none; }
+  .icon-btn:hover { background: transparent; }
 }

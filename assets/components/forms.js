@@ -35,49 +35,63 @@
       const input = wrap.querySelector('input');
 
       /**
-       * Handle input: parse → format → restore cursor position by digit count.
-       * Cursor tracking is based on DIGIT count (not character count) so that
-       * typing, pasting, deleting, and editing in the middle all work correctly.
+       * Core formatting function — pure, no side effects.
+       * Returns { value, cursorPos } or null on failure.
+       */
+      function formatValue(rawValue, cursorPos) {
+        try {
+          // Count digits BEFORE cursor in the raw (pre-format) value
+          const digitsBeforeCursor = (rawValue.slice(0, cursorPos).match(/\d/g) || []).length;
+
+          // Parse to a pure number (Indonesian-aware)
+          const num = Utils.parseNumber(rawValue);
+          const newValue = num > 0 ? Utils.formatAmount(num) : '';
+
+          // If new value is empty, cursor goes to 0
+          if (!newValue) return { value: '', cursorPos: 0 };
+
+          // Walk through newValue, count digits, stop when we reach digitsBeforeCursor
+          let digitCount = 0;
+          let newCursorPos = newValue.length; // default: end
+          for (let i = 0; i < newValue.length; i++) {
+            if (/\d/.test(newValue[i])) {
+              digitCount++;
+              if (digitCount === digitsBeforeCursor) {
+                newCursorPos = i + 1;
+                break;
+              }
+            }
+          }
+          // If cursor was after all digits (e.g. user typed at the end), place at end
+          if (digitCount < digitsBeforeCursor) {
+            newCursorPos = newValue.length;
+          }
+          return { value: newValue, cursorPos: newCursorPos };
+        } catch (err) {
+          // Fallback: keep raw value, don't crash the input
+          console.warn('formatValue error:', err);
+          return { value: rawValue, cursorPos: rawValue.length };
+        }
+      }
+
+      /**
+       * Handle input event: format value + restore cursor.
+       * Uses requestAnimationFrame for reliable cursor positioning across browsers.
        */
       function formatInput() {
         const cursorPos = input.selectionStart || 0;
         const oldValue = input.value;
+        const result = formatValue(oldValue, cursorPos);
 
-        // Count digits BEFORE cursor in old value
-        const digitsBeforeCursor = (oldValue.slice(0, cursorPos).match(/\d/g) || []).length;
+        // Always update value (even if same, to ensure consistency)
+        input.value = result.value;
 
-        // Parse to a pure number (Indonesian-aware)
-        const num = Utils.parseNumber(oldValue);
-        const newValue = num > 0 ? Utils.formatAmount(num) : '';
-
-        // Avoid resetting if value didn't actually change (prevents cursor jump on letter input)
-        if (oldValue === newValue) return;
-
-        input.value = newValue;
-
-        // Restore cursor position based on digit count
-        if (!newValue) {
-          input.setSelectionRange(0, 0);
-          return;
-        }
-
-        // Walk through newValue, count digits, stop when we reach digitsBeforeCursor
-        let digitCount = 0;
-        let newCursorPos = newValue.length; // default: end
-        for (let i = 0; i < newValue.length; i++) {
-          if (/\d/.test(newValue[i])) {
-            digitCount++;
-            if (digitCount === digitsBeforeCursor) {
-              newCursorPos = i + 1;
-              break;
-            }
-          }
-        }
-        // If cursor was after all digits (e.g. user typed at the end), place at end
-        if (digitCount < digitsBeforeCursor) {
-          newCursorPos = newValue.length;
-        }
-        input.setSelectionRange(newCursorPos, newCursorPos);
+        // Restore cursor on next frame (more reliable than synchronous setSelectionRange)
+        requestAnimationFrame(() => {
+          try {
+            input.setSelectionRange(result.cursorPos, result.cursorPos);
+          } catch (e) { /* ignore */ }
+        });
       }
 
       input.addEventListener('input', formatInput);
@@ -97,17 +111,17 @@
         e.preventDefault();
         const text = (e.clipboardData || window.clipboardData).getData('text');
         const num = Utils.parseNumber(text);
-        if (num > 0) {
-          input.value = Utils.formatAmount(num);
-        } else {
-          input.value = '';
-        }
+        input.value = num > 0 ? Utils.formatAmount(num) : '';
         // Place cursor at end after paste
         requestAnimationFrame(() => {
           const len = input.value.length;
-          input.setSelectionRange(len, len);
+          try { input.setSelectionRange(len, len); } catch (e) { /* ignore */ }
         });
       });
+
+      // Handle focus: select all on click (optional UX improvement)
+      // (commented out — let user place cursor wherever they want)
+      // input.addEventListener('focus', () => input.select());
 
       return wrap;
     },
