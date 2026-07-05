@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="theme-color" content="#10B981">
+  <meta name="description" content="DompetKu — PWA catatan keuangan pribadi: pemasukan, pengeluaran, utang, piutang, tabungan, aset, anggaran, dan laporan keuangan lengkap. Offline-first, data tersimpan lokal di perangkat Anda.">
+  <meta name="keywords" content="keuangan, pribadi, dompet, catatan, pengeluaran, pemasukan, utang, piutang, tabungan, anggaran, laporan, offline, pwa">
+  <meta name="author" content="DompetKu">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="DompetKu — Catatan Keuangan Pribadi">
+  <meta property="og:description" content="Aplikasi catatan keuangan pribadi offline. Lengkap: pemasukan, pengeluaran, utang, piutang, tabungan, aset, anggaran, laporan.">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DompetKu">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+  <link rel="stylesheet" href="assets/css/responsive.css">
+
+  <title>DompetKu — Catatan Keuangan Pribadi</title>
+
+  <!-- Inline pre-loader to prevent flash before app loads -->
+  <style>
+    #preloader {
+      position: fixed; inset: 0; background: var(--bg, #fff);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; z-index: 9999;
+      transition: opacity .3s;
+    }
+    #preloader.hidden { opacity: 0; pointer-events: none; }
+    #preloader .logo {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: #10B981; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; font-weight: 800; font-family: system-ui;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    #preloader .name { font-family: system-ui; font-weight: 700; color: #0a0a0a; font-size: 20px; }
+    #preloader .sub { font-family: system-ui; color: #6b7280; font-size: 12px; }
+    @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } }
+  </style>
+</head>
+<body>
+  <!-- Preloader -->
+  <div id="preloader">
+    <div class="logo">D</div>
+    <div class="name">DompetKu</div>
+    <div class="sub">Memuat...</div>
+  </div>
+
+  <!-- Lock screen (only shown when PIN/password is set) -->
+  <div id="lockScreen" class="lock-screen" style="display:none">
+    <div class="lock-card">
+      <div class="lock-logo">D</div>
+      <h1>DompetKu</h1>
+      <p>Masukkan PIN untuk melanjutkan</p>
+      <form id="lockForm" autocomplete="off">
+        <input type="password" id="lockInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••" aria-label="PIN">
+        <button type="submit" class="btn btn-primary btn-block">Buka Kunci</button>
+      </form>
+      <p class="lock-hint">Lupa PIN? Reset di pengaturan browser (clear IndexedDB).</p>
+    </div>
+  </div>
+
+  <!-- App root (filled by app.js) -->
+  <div id="app"></div>
+
+  <!-- ============ Scripts ============ -->
+  <!-- Order matters: utils, db, settings, theme, auth first; then UI; then components; then pages; finally app.js -->
+
+  <!-- Core -->
+  <script src="assets/js/utils.js"></script>
+  <script src="assets/js/crypto.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/settings.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/toast.js"></script>
+  <script src="assets/js/modal.js"></script>
+  <script src="assets/js/charts.js"></script>
+  <script src="assets/js/router.js"></script>
+  <script src="assets/js/export.js"></script>
+  <script src="assets/js/import.js"></script>
+  <script src="assets/js/backup.js"></script>
+  <script src="assets/js/reminders.js"></script>
+
+  <!-- Database -->
+  <script src="assets/database/schema.js"></script>
+  <script src="assets/database/seed.js"></script>
+
+  <!-- Components -->
+  <script src="assets/components/navbar.js"></script>
+  <script src="assets/components/sidebar.js"></script>
+  <script src="assets/components/forms.js"></script>
+  <script src="assets/components/transaction-form.js"></script>
+  <script src="assets/components/debt-form.js"></script>
+  <script src="assets/components/saving-form.js"></script>
+  <script src="assets/components/asset-form.js"></script>
+  <script src="assets/components/budget-form.js"></script>
+
+  <!-- Pages -->
+  <script src="assets/pages/dashboard.js"></script>
+  <script src="assets/pages/transactions.js"></script>
+  <script src="assets/pages/debts.js"></script>
+  <script src="assets/pages/receivables.js"></script>
+  <script src="assets/pages/savings.js"></script>
+  <script src="assets/pages/assets.js"></script>
+  <script src="assets/pages/budgets.js"></script>
+  <script src="assets/pages/reports.js"></script>
+  <script src="assets/pages/calendar.js"></script>
+  <script src="assets/pages/search.js"></script>
+  <script src="assets/pages/settings-page.js"></script>
+
+  <!-- App entry -->
+  <script src="assets/js/app.js"></script>
+
+  <!-- Lock screen + preloader logic -->
+  <script>
+    (function () {
+      const preloader = document.getElementById('preloader');
+      const lockScreen = document.getElementById('lockScreen');
+      const lockForm = document.getElementById('lockForm');
+      const lockInput = document.getElementById('lockInput');
+
+      // Hide preloader once app starts rendering
+      function hidePreloader() {
+        setTimeout(() => preloader.classList.add('hidden'), 400);
+      }
+
+      // Lock state change listener
+      document.addEventListener('dompetku:lock-change', (e) => {
+        const unlocked = e.detail.unlocked;
+        const hasSecurity = document.documentElement.dataset.hasPin === 'true';
+        if (hasSecurity && !unlocked) {
+          lockScreen.style.display = 'flex';
+          lockInput.value = '';
+          setTimeout(() => lockInput.focus(), 100);
+        } else {
+          lockScreen.style.display = 'none';
+        }
+      });
+
+      lockForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const code = lockInput.value;
+        if (!code) return;
+        const ok = await Auth.unlock(code);
+        if (!ok) {
+          lockInput.value = '';
+          lockInput.classList.add('shake');
+          setTimeout(() => lockInput.classList.remove('shake'), 400);
+          Toast.error('PIN salah');
+        }
+      };
+
+      // After app.js loads, hide preloader and check lock state
+      window.addEventListener('load', async () => {
+        // Wait briefly for app.js async init to complete
+        let tries = 0;
+        const wait = setInterval(() => {
+          tries++;
+          if (window.Auth && window.Settings) {
+            clearInterval(wait);
+            hidePreloader();
+            const hasSecurity = Auth.hasSecurity();
+            document.documentElement.dataset.hasPin = String(hasSecurity);
+            if (!hasSecurity) {
+              // No PIN set — mark as unlocked
+              Auth.skipSecurity();
+            } else {
+              // Show lock screen
+              lockScreen.style.display = 'flex';
+              setTimeout(() => lockInput.focus(), 300);
+            }
+          } else if (tries > 20) {
+            clearInterval(wait);
+            hidePreloader();
+          }
+        }, 100);
+      });
+
+      // Register service worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js').catch((err) => console.log('SW reg failed:', err));
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

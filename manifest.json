@@ -1,0 +1,40 @@
+{
+  "name": "DompetKu - PWA Catatan Keuangan Pribadi",
+  "short_name": "DompetKu",
+  "description": "Aplikasi pencatat keuangan pribadi: pemasukan, pengeluaran, utang, piutang, tabungan, aset, anggaran, dan laporan keuangan lengkap.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B1120",
+  "theme_color": "#10B981",
+  "lang": "id-ID",
+  "dir": "ltr",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icons/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Dashboard", "url": "./#/dashboard" },
+    { "name": "Tambah Pemasukan", "url": "./#/transactions?action=add&type=income" },
+    { "name": "Tambah Pengeluaran", "url": "./#/transactions?action=add&type=expense" },
+    { "name": "Utang", "url": "./#/debts" },
+    { "name": "Tabungan", "url": "./#/savings" }
+  ]
+}
