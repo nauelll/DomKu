@@ -46,6 +46,16 @@
     formatNumber(n, locale = 'id-ID') {
       return (Number(n) || 0).toLocaleString(locale);
     },
+    /**
+     * Format angka untuk tampilan input nominal (Indonesian: dot as thousand separator).
+     * Returns empty string for 0 so the input appears empty when cleared.
+     * Example: 13844000 → "13.844.000"
+     */
+    formatAmount(n) {
+      const num = Number(n);
+      if (!isFinite(num) || num === 0) return '';
+      return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(num);
+    },
     /** Compact format: 1840 → "1.8k", 1250000 → "1.3M" */
     formatShort(n) {
       n = Number(n) || 0;
@@ -55,10 +65,38 @@
       if (abs >= 1e3) return (n / 1e3).toFixed(0) + 'k';
       return String(Math.round(n));
     },
+    /**
+     * Parse string to number — Indonesian format aware.
+     * Indonesian: dots (.) are thousand separators, comma (,) is decimal.
+     * Examples:
+     *   "13.844.000"  → 13844000
+     *   "1.250.000"   → 1250000
+     *   "250.000"     → 250000
+     *   "15.500"      → 15500
+     *   "13.844.000,50" → 13844000.5  (with decimal)
+     *   "abc 12.000"  → 12000  (letters ignored)
+     *   ""            → 0
+     *   1234 (number) → 1234 (passthrough)
+     */
     parseNumber(str) {
-      if (typeof str === 'number') return str;
-      if (!str) return 0;
-      return Number(String(str).replace(/[^0-9.-]/g, '')) || 0;
+      if (typeof str === 'number') return isFinite(str) ? str : 0;
+      if (str == null) return 0;
+      let s = String(str).trim();
+      if (!s) return 0;
+      // Indonesian: remove all dots (thousand separators), convert comma to dot (decimal)
+      s = s.replace(/\./g, '').replace(/,/g, '.');
+      // Strip anything that's not digit, dot, or minus
+      s = s.replace(/[^0-9.-]/g, '');
+      // Keep only the last dot (in case of "12.34.56" → treat as thousand → "123456")
+      const parts = s.split('.');
+      if (parts.length > 2) {
+        // Multiple dots — treat all but possibly last as thousand separators
+        // If last part is exactly 3 digits, treat all as thousand separators → integer
+        // Otherwise, treat all as thousand separators → integer
+        s = parts.join('');
+      }
+      const n = Number(s);
+      return isFinite(n) ? n : 0;
     },
     formatPercent(value, digits = 1) {
       return (Number(value) || 0).toFixed(digits) + '%';
