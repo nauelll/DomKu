@@ -39,6 +39,13 @@
     const aside = document.createElement('aside');
     aside.className = 'sidebar';
     aside.innerHTML = `
+      <div class="sidebar-brand">
+        <img src="assets/images/logo-square.png" alt="DomKu" class="brand-mark-img">
+        <div class="brand-info">
+          <strong><span style="color:#3B82F6">Dom</span><span style="color:#10B981">Ku</span></strong>
+          <small>Personal Finance</small>
+        </div>
+      </div>
       <nav class="sidebar-nav">
         ${NAV_ITEMS.map((item) => `
           <a href="#/${item.path}" class="nav-item" data-nav="${item.path}">

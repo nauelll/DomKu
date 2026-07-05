@@ -4,7 +4,7 @@
    network-first for navigations with offline fallback.
    ============================================ */
 
-const CACHE_VERSION = 'dompetku-v1';
+const CACHE_VERSION = 'domku-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -49,9 +49,14 @@ const APP_SHELL = [
   './assets/pages/calendar.js',
   './assets/pages/search.js',
   './assets/pages/settings-page.js',
+  './assets/icons/favicon.png',
   './assets/icons/favicon.svg',
-  './assets/icons/icon-192.svg',
-  './assets/icons/icon-512.svg'
+  './assets/icons/apple-touch-icon.png',
+  './assets/icons/icon-192.png',
+  './assets/icons/icon-512.png',
+  './assets/images/logo-square.png',
+  './assets/images/logo-full.png',
+  './assets/images/og-image.png'
 ];
 
 // Install: pre-cache app shell

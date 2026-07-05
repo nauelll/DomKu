@@ -122,7 +122,7 @@
         <section class="card">
           <div class="card-head"><h3>Tentang</h3></div>
           <div class="about-info">
-            <div class="setting-row"><div>DompetKu v1.0</div><div class="muted small">PWA Catatan Keuangan</div></div>
+            <div class="setting-row"><div>DomKu v1.0</div><div class="muted small">PWA Catatan Keuangan</div></div>
             <div class="setting-row"><div>Storage</div><div class="muted small">IndexedDB (offline-first)</div></div>
             <div class="setting-row"><div>Lisensi</div><div class="muted small">Free for personal use</div></div>
           </div>

@@ -1,33 +1,54 @@
 {
-  "name": "DompetKu - PWA Catatan Keuangan Pribadi",
-  "short_name": "DompetKu",
+  "name": "DomKu - PWA Catatan Keuangan Pribadi",
+  "short_name": "DomKu",
   "description": "Aplikasi pencatat keuangan pribadi: pemasukan, pengeluaran, utang, piutang, tabungan, aset, anggaran, dan laporan keuangan lengkap.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0B1120",
+  "background_color": "#FAFBFC",
   "theme_color": "#10B981",
   "lang": "id-ID",
   "dir": "ltr",
   "categories": ["finance", "productivity", "utilities"],
   "icons": [
     {
-      "src": "assets/icons/icon-192.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
+      "src": "assets/icons/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "assets/icons/icon-512.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
     },
     {
       "src": "assets/icons/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
+    },
+    {
+      "src": "assets/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "assets/images/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "DomKu - Personal Finance Tracker"
     }
   ],
   "shortcuts": [
@@ -36,5 +57,6 @@
     { "name": "Tambah Pengeluaran", "url": "./#/transactions?action=add&type=expense" },
     { "name": "Utang", "url": "./#/debts" },
     { "name": "Tabungan", "url": "./#/savings" }
-  ]
+  ],
+  "prefer_related_applications": false
 }

@@ -14,8 +14,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
       <a href="#/dashboard" class="brand">
-        <span class="brand-mark">D</span>
-        <span class="brand-name">DompetKu</span>
+        <img src="assets/images/logo-square.png" alt="DomKu" class="brand-mark-img">
+        <span class="brand-name"><span style="color:#3B82F6">Dom</span><span style="color:#10B981">Ku</span></span>
       </a>
       <div class="navbar-actions">
         <button class="icon-btn" data-action="quick-add" aria-label="Tambah transaksi" title="Tambah Cepat">

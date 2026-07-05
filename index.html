@@ -5,23 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="theme-color" content="#10B981">
-  <meta name="description" content="DompetKu — PWA catatan keuangan pribadi: pemasukan, pengeluaran, utang, piutang, tabungan, aset, anggaran, dan laporan keuangan lengkap. Offline-first, data tersimpan lokal di perangkat Anda.">
-  <meta name="keywords" content="keuangan, pribadi, dompet, catatan, pengeluaran, pemasukan, utang, piutang, tabungan, anggaran, laporan, offline, pwa">
-  <meta name="author" content="DompetKu">
+  <meta name="description" content="DomKu — PWA catatan keuangan pribadi: pemasukan, pengeluaran, utang, piutang, tabungan, aset, anggaran, dan laporan keuangan lengkap. Offline-first, data tersimpan lokal di perangkat Anda.">
+  <meta name="keywords" content="domku, dompetku, keuangan, pribadi, dompet, catatan, pengeluaran, pemasukan, utang, piutang, tabungan, anggaran, laporan, offline, pwa">
+  <meta name="author" content="DomKu">
   <meta name="robots" content="index, follow">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="DompetKu — Catatan Keuangan Pribadi">
+  <meta property="og:title" content="DomKu — Catatan Keuangan Pribadi">
   <meta property="og:description" content="Aplikasi catatan keuangan pribadi offline. Lengkap: pemasukan, pengeluaran, utang, piutang, tabungan, aset, anggaran, laporan.">
+  <meta property="og:image" content="assets/images/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/icons/favicon.png">
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
-  <link rel="apple-touch-icon" href="assets/icons/icon-192.svg">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="DompetKu">
+  <meta name="apple-mobile-web-app-title" content="DomKu">
   <meta name="mobile-web-app-capable" content="yes">
 
   <!-- CSS -->
@@ -30,42 +34,57 @@
   <link rel="stylesheet" href="assets/css/pages.css">
   <link rel="stylesheet" href="assets/css/responsive.css">
 
-  <title>DompetKu — Catatan Keuangan Pribadi</title>
+  <title>DomKu — Catatan Keuangan Pribadi</title>
 
   <!-- Inline pre-loader to prevent flash before app loads -->
   <style>
     #preloader {
-      position: fixed; inset: 0; background: var(--bg, #fff);
+      position: fixed; inset: 0;
+      background: var(--bg, #FAFBFC);
       display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 16px; z-index: 9999;
-      transition: opacity .3s;
+      flex-direction: column; gap: 20px; z-index: 9999;
+      transition: opacity .35s ease;
     }
     #preloader.hidden { opacity: 0; pointer-events: none; }
-    #preloader .logo {
-      width: 64px; height: 64px; border-radius: 16px;
-      background: #10B981; color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 32px; font-weight: 800; font-family: system-ui;
-      animation: pulse 1.5s ease-in-out infinite;
+    #preloader .logo-img {
+      width: 88px; height: 88px;
+      border-radius: 22px;
+      object-fit: cover;
+      box-shadow: 0 16px 40px rgba(5, 150, 105, 0.25), 0 4px 12px rgba(15, 23, 42, 0.1);
+      animation: pulse 1.4s ease-in-out infinite;
     }
-    #preloader .name { font-family: system-ui; font-weight: 700; color: #0a0a0a; font-size: 20px; }
-    #preloader .sub { font-family: system-ui; color: #6b7280; font-size: 12px; }
-    @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } }
+    #preloader .name {
+      font-family: system-ui; font-weight: 800; color: #0F172A; font-size: 26px; letter-spacing: -0.03em;
+    }
+    #preloader .name .blue { color: #3B82F6; }
+    #preloader .name .green { color: #10B981; }
+    #preloader .sub { font-family: system-ui; color: #94A3B8; font-size: 13px; font-weight: 500; }
+    #preloader .spinner {
+      width: 28px; height: 28px;
+      border: 2px solid #E5E7EB;
+      border-top-color: #10B981;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-top: 4px;
+    }
+    @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <!-- Preloader -->
   <div id="preloader">
-    <div class="logo">D</div>
-    <div class="name">DompetKu</div>
+    <img class="logo-img" src="assets/images/logo-square.png" alt="DomKu">
+    <div class="name"><span class="blue">Dom</span><span class="green">Ku</span></div>
     <div class="sub">Memuat...</div>
+    <div class="spinner"></div>
   </div>
 
   <!-- Lock screen (only shown when PIN/password is set) -->
   <div id="lockScreen" class="lock-screen" style="display:none">
     <div class="lock-card">
-      <div class="lock-logo">D</div>
-      <h1>DompetKu</h1>
+      <img class="lock-logo-img" src="assets/images/logo-square.png" alt="DomKu">
+      <h1><span style="color:#3B82F6">Dom</span><span style="color:#10B981">Ku</span></h1>
       <p>Masukkan PIN untuk melanjutkan</p>
       <form id="lockForm" autocomplete="off">
         <input type="password" id="lockInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••" aria-label="PIN">

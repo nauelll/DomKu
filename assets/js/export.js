@@ -100,7 +100,7 @@
       const totalIn = Utils.sumBy(txs.filter((t) => t.type === 'income'), (t) => t.amount);
       const totalOut = Utils.sumBy(txs.filter((t) => t.type === 'expense'), (t) => t.amount);
       win.document.write(`
-        <!DOCTYPE html><html><head><title>Laporan DompetKu</title>
+        <!DOCTYPE html><html><head><title>Laporan DomKu</title>
         <style>
           body { font-family: system-ui, sans-serif; padding: 24px; color: #0A0A0A; }
           h1 { color: #10B981; }
@@ -112,7 +112,7 @@
           .summary div { padding: 8px 16px; border-radius: 8px; background: #f3f4f6; }
           @media print { button { display: none; } }
         </style></head><body>
-          <h1>Laporan Transaksi DompetKu</h1>
+          <h1>Laporan Transaksi DomKu</h1>
           <p>Periode: ${range.from || 'Awal'} s/d ${range.to || 'Akhir'}</p>
           <p>Diexport: ${Utils.formatDateTime(new Date().toISOString())}</p>
           <div class="summary">
