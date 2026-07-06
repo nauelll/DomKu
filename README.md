@@ -1,12 +1,98 @@
-# DompetKu — PWA Catatan Keuangan Pribadi
+# DomKu — PWA Catatan Keuangan Pribadi (Firebase Edition)
 
 Aplikasi web **Progressive Web App (PWA)** untuk mencatat seluruh keuangan pribadi: pemasukan, pengeluaran, utang, piutang, tabungan, aset, anggaran, target, dan laporan keuangan lengkap.
 
-**100% offline-first.** Semua data tersimpan di perangkat Anda menggunakan IndexedDB. Tidak ada server, tidak ada backend, tidak ada framework. Dibangun dengan **HTML5 + CSS3 + JavaScript Vanilla** murni.
+**Offline-first.** Semua data tersimpan di IndexedDB (cache lokal) + Firebase Firestore (cloud). Tidak ada server, tidak ada backend, tidak ada framework. Dibangun dengan **HTML5 + CSS3 + JavaScript Vanilla** + Firebase SDK v10 modular.
+
+**Versi Firebase:** Mendukung login (Google + Email), wallet bersama dengan pasangan real-time, dan sinkronisasi cloud otomatis. Tetap di-hosting di GitHub Pages.
+
+---
+
+## 📋 Setup Firebase (WAJIB sebelum deploy)
+
+### Step 1: Buat Firebase Project
+1. Buka https://console.firebase.google.com
+2. Klik **Add project** → isi nama (misal: `domku-app`) → klik Continue
+3. Disable Google Analytics (tidak perlu untuk app ini) → Create project
+
+### Step 2: Aktifkan Firestore Database
+1. Di sidebar kiri → **Firestore Database** → **Create database**
+2. Pilih **Start in production mode** → pilih region (Singapore untuk Indonesia) → Enable
+
+### Step 3: Aktifkan Authentication
+1. Sidebar → **Authentication** → **Get started**
+2. Tab **Sign-in method** → enable:
+   - **Email/Password** → toggle Enable → Save
+   - **Google** → toggle Enable → isi support email → Save
+
+### Step 4: Dapatkan Config
+1. Sidebar → **Project settings** (gear icon)
+2. Scroll ke **Your apps** → klik **Web** icon (`</>`)
+3. Isi app nickname (`domku-web`) → Register app
+4. Copy config object yang muncul
+
+### Step 5: Update firebase-config.js
+File `assets/js/firebase-config.js` sudah diisi dengan config project `domku-5b7cf`:
+
+```js
+window.FirebaseConfig = {
+  apiKey: "AIzaSyCm7JofZUgWws65Y-3yQ1WBaeKK2laBcIU",
+  authDomain: "domku-5b7cf.firebaseapp.com",
+  projectId: "domku-5b7cf",
+  storageBucket: "domku-5b7cf.firebasestorage.app",
+  messagingSenderId: "589186943575",
+  appId: "1:589186943575:web:1e65e7b344aa4244eaf112",
+  enableOffline: true
+};
+```
+
+### Step 6: Aktifkan Google Sign-In Provider
+1. Firebase Console → **Authentication** → **Sign-in method**
+2. Klik **Google** → toggle **Enable** → isi Support Email → **Save**
+3. Pastikan **Email/Password** juga di-enable
+
+### Step 7: Tambah Authorized Domains
+1. Firebase Console → **Authentication** → **Settings** → **Authorized domains**
+2. Klik **Add domain** → tambah:
+   - `localhost` (untuk test lokal)
+   - `USERNAME.github.io` (domain GitHub Pages Anda)
+   - Custom domain jika pakai (misal: `domku.com`)
+
+### Step 8: Deploy Firestore Security Rules
+```bash
+# Install Firebase CLI
+npm install -g firebase-tools
+
+# Login
+firebase login
+
+# Di folder project, init firebase
+firebase init firestore
+# Pilih project domku-5b7cf
+# Pilih "Use existing rules file" → firestore.rules
+
+# Deploy rules
+firebase deploy --only firestore:rules
+```
 
 ---
 
 ## Fitur Lengkap
+
+### 🔐 Authentication (NEW)
+- **Login Google** — one click via popup
+- **Email & Password** — signup + signin + reset password
+- **PIN aplikasi** (existing) — tetap bisa dipakai sebagai second layer security
+- **Auto-lock** saat idle
+
+### 💑 Couple Wallet (NEW)
+- Buat wallet **Pribadi** atau **Bersama**
+- Undang pasangan via:
+  - **Email** — invitation terkirim otomatis
+  - **Kode undangan** — 6 karakter, share via chat
+  - **Share link** — deep link langsung ke halaman accept
+- Wallet bersama = **real-time sync**. Pasangan tambah transaksi → HP Anda langsung update tanpa refresh
+- Multi-wallet: bisa punya banyak wallet, switch kapan saja
 
 ### 📊 Dashboard
 - Saldo saat ini, available, net worth
@@ -22,6 +108,7 @@ Aplikasi web **Progressive Web App (PWA)** untuk mencatat seluruh keuangan priba
 - Pengeluaran: 23 kategori bawaan (makan, transport, rokok, vape, liquid, pulsa, listrik, dll)
 - Field: nominal, tanggal, jam, kategori, sumber/metode, catatan, **lampiran foto bukti**
 - Kategori dapat ditambah/edit/hapus sendiri
+- **Format nominal Indonesia**: ketik `13.844.000` → auto-format
 
 ### 🔴 Utang & 🟢 Piutang
 - Catat nama, kontak, nominal, tanggal pinjam, jatuh tempo, cicilan/bulan
@@ -66,23 +153,35 @@ Aplikasi web **Progressive Web App (PWA)** untuk mencatat seluruh keuangan priba
 - Filter by jenis, kategori, bulan
 - Quick filter buttons
 
+### 🔔 Notifikasi & Audit Log (NEW)
+- **Real-time notification** saat pasangan menambah transaksi
+- **Activity log** lengkap: "Naufal menambah pengeluaran Rp 50.000" dengan timestamp
+- Badge counter di navbar
+- Mark as read / mark all read
+
 ### 💾 Export / Import / Backup
-- **Export**: CSV, Excel (.xls SpreadsheetML), PDF (print), JSON
+- **Export**: CSV, Excel (.xls), PDF (print), JSON
 - **Import**: CSV, JSON
 - **Backup**: full database JSON (plain atau AES-GCM encrypted)
 - **Restore**: dari file backup (plain atau encrypted)
-- Backup terenkripsi menggunakan PBKDF2 + AES-GCM 256-bit
 
-### 🔔 Pengingat
-- Auto-generate dari utang/piutang yang ada jatuh tempo
-- Toast notification untuk jatuh tempo ≤ 7 hari
-- Native browser notification (dengan permission)
+### 🔄 Offline-First + Auto Sync (NEW)
+- **Mode offline**: aplikasi tetap jalan, semua perubahan disimpan ke IndexedDB
+- **Saat online kembali**: sinkronisasi otomatis ke Firestore, tidak ada data hilang
+- **Retry dengan exponential backoff** jika sync gagal
+- **Sync indicator** di navbar (Online / Offline / Syncing)
+
+### 🚚 Migration Dialog (NEW)
+Saat login pertama kali dengan data lokal:
+- **Gabungkan ke Cloud** — tambah data lokal ke cloud
+- **Ganti Data Cloud** — hapus data cloud, ganti dengan lokal
+- **Abaikan** — pakai data cloud, hapus data lokal
 
 ### 🔐 Keamanan
-- PIN aplikasi (4-6 digit) dengan SHA-256 + salt
-- Auto-lock saat idle (1/5/15/30 menit)
-- Bisa dimatikan jika tidak ingin pakai PIN
-- Backup file bisa dienkripsi dengan password (AES-GCM 256-bit)
+- **PIN aplikasi** (4-6 digit) dengan SHA-256 + salt
+- **Auto-lock** saat idle (1/5/15/30 menit)
+- **Backup terenkripsi** AES-GCM 256-bit dengan PBKDF2
+- **Firestore Security Rules** — user hanya bisa akses wallet miliknya, wallet bersama hanya untuk anggota
 
 ### 🎨 Tema & Personalisasi
 - **Dark / Light / System** mode
@@ -93,141 +192,71 @@ Aplikasi web **Progressive Web App (PWA)** untuk mencatat seluruh keuangan priba
 
 ---
 
-## Struktur Folder
+## Struktur Firestore
 
 ```
-dompetku/
-├── index.html              # App shell + PIN lock screen
-├── manifest.json           # PWA manifest
-├── sw.js                   # Service Worker
-├── robots.txt              # SEO
-├── .nojekyll               # GitHub Pages bypass
-├── README.md
-│
-└── assets/
-    ├── css/
-    │   ├── style.css       # Design system + theme
-    │   ├── components.css  # UI components
-    │   ├── pages.css       # Page-specific styles
-    │   └── responsive.css  # Mobile responsive
-    │
-    ├── js/
-    │   ├── db.js           # IndexedDB wrapper
-    │   ├── crypto.js       # Web Crypto (PIN, AES-GCM)
-    │   ├── utils.js        # Formatters & helpers
-    │   ├── settings.js     # User preferences
-    │   ├── theme.js        # Dark/light/accent
-    │   ├── auth.js         # PIN + auto-lock
-    │   ├── toast.js        # Toast notifications
-    │   ├── modal.js        # Modal + confirm
-    │   ├── charts.js       # Vanilla canvas charts
-    │   ├── router.js       # Hash-based SPA router
-    │   ├── export.js       # CSV/XLSX/PDF/JSON
-    │   ├── import.js       # CSV/JSON parser
-    │   ├── backup.js       # Backup & restore
-    │   ├── reminders.js    # Due date reminders
-    │   └── app.js          # Main entry
-    │
-    ├── components/
-    │   ├── navbar.js
-    │   ├── sidebar.js
-    │   ├── forms.js
-    │   ├── transaction-form.js
-    │   ├── debt-form.js
-    │   ├── saving-form.js
-    │   ├── asset-form.js
-    │   └── budget-form.js
-    │
-    ├── pages/
-    │   ├── dashboard.js
-    │   ├── transactions.js
-    │   ├── debts.js
-    │   ├── receivables.js
-    │   ├── savings.js
-    │   ├── assets.js
-    │   ├── budgets.js
-    │   ├── reports.js
-    │   ├── calendar.js
-    │   ├── search.js
-    │   └── settings-page.js
-    │
-    ├── database/
-    │   ├── schema.js       # DB schema documentation
-    │   └── seed.js         # Default categories
-    │
-    ├── icons/
-    │   ├── favicon.svg
-    │   ├── icon-192.svg
-    │   └── icon-512.svg
-    │
-    ├── export/             # (Reserved for export templates)
-    ├── import/             # (Reserved for import parsers)
-    ├── images/             # (Reserved for app images)
-    └── fonts/              # (Uses system fonts for offline)
+users/
+  {uid}/
+    - uid, email, displayName, photoURL
+    - defaultWalletId
+    - wallets: [walletId1, walletId2, ...]
+
+wallets/
+  {walletId}/
+    - name, type (personal|couple), emoji
+    - ownerId
+    - members: { uid: true }
+    - memberInfo: { uid: { displayName, photoURL, role, joinedAt } }
+    
+    transactions/{txId}     - pemasukan & pengeluaran
+    categories/{catId}      - kategori
+    debts/{debtId}          - utang
+    debtPayments/{payId}    - riwayat bayar utang
+    receivables/{recId}     - piutang
+    receivablePayments/{payId}
+    savings/{savId}         - target tabungan
+    savingTransactions/{txId}
+    assets/{assetId}        - aset
+    budgets/{budId}         - anggaran bulanan
+    reminders/{remId}       - pengingat
+    attachments/{attId}     - foto bukti
+    auditLogs/{logId}       - riwayat aktivitas (immutable)
+    settings/{setId}        - pengaturan per-user dalam wallet
+
+invitations/
+  {invId}/
+    - walletId, walletName
+    - inviterId, inviterName
+    - inviteeEmail (nullable)
+    - code (6 chars)
+    - status (pending|accepted|rejected|expired)
+    - createdAt, expiresAt
+
+notifications/
+  {notifId}/
+    - userId (penerima)
+    - walletId
+    - title, text
+    - read (boolean)
+    - createdAt
 ```
 
 ---
 
 ## Cara Menjalankan Secara Lokal
 
-Karena aplikasi menggunakan IndexedDB + service worker, **wajib dijalankan via HTTP server** (tidak bisa via `file://`).
-
-### Opsi 1: Python (paling mudah, sudah terinstall di Mac/Linux)
+### Opsi 1: Python (paling mudah)
 ```bash
-cd dompetku
+cd domku
 python3 -m http.server 8000
 ```
 Buka browser ke `http://localhost:8000`
 
 ### Opsi 2: Node.js
 ```bash
-cd dompetku
+cd domku
 npx serve -l 8000
 ```
-
-### Opsi 3: VS Code
-Install ekstensi **Live Server**, klik kanan `index.html` → "Open with Live Server".
-
-### Opsi 4: PHP
-```bash
-cd dompetku
-php -S localhost:8000
-```
-
----
-
-## Cara Pakai
-
-### 1. Setup Awal
-- Buka aplikasi di browser
-- (Opsional) Aktifkan PIN di menu **Pengaturan → Keamanan**
-- Pilih tema, warna aksen, mata uang, format tanggal di **Pengaturan**
-
-### 2. Mulai Mencatat
-- Klik tombol **+ Pemasukan** / **+ Pengeluaran** di dashboard atau halaman Transaksi
-- Atau gunakan tombol **+** di navbar untuk quick add
-- Isi nominal, kategori, tanggal, dan (opsional) lampiran foto
-
-### 3. Tambah Utang/Piutang/Tabungan/Aset
-- Buka menu di sidebar
-- Klik tombol tambah di pojok kanan atas
-- Untuk utang/piutang: sistem otomatis membuat transaksi saat ada pembayaran
-
-### 4. Atur Anggaran
-- Buka menu **Anggaran**
-- Pilih bulan, tambah anggaran per kategori
-- Sistem otomatis memberi warning merah jika over budget
-
-### 5. Backup Berkala
-- Buka **Pengaturan → Data & Backup**
-- Klik **Backup** untuk export data (JSON)
-- Untuk keamanan ekstra, gunakan **Backup Terenkripsi** dengan password
-- Simpan file backup di tempat aman (Google Drive, dll)
-
-### 6. Install sebagai PWA
-- Di Chrome/Edge: klik ikon install di address bar
-- Atau menu ⋮ → **Install DompetKu**
-- Aplikasi akan muncul sebagai app terpisah, bisa dibuka offline
 
 ---
 
@@ -235,17 +264,17 @@ php -S localhost:8000
 
 ### Step 1: Buat Repository
 1. Buka https://github.com/new
-2. Repository name: `dompetku` (atau nama lain, **public**)
+2. Repository name: `domku` (atau nama lain, **public**)
 3. **Jangan** centang "Add a README"
 4. Klik **Create repository**
 
 ### Step 2: Push File ke GitHub
 ```bash
-cd dompetku
+cd domku
 git init
 git add .
-git commit -m "Initial commit: DompetKu PWA"
-git remote add origin https://github.com/USERNAME/dompetku.git
+git commit -m "Initial commit: DomKu PWA with Firebase"
+git remote add origin https://github.com/USERNAME/domku.git
 git branch -M main
 git push -u origin main
 ```
@@ -257,10 +286,14 @@ git push -u origin main
    - Branch: `main` / root → **Save**
 3. Tunggu 1-2 menit, website live di:
    ```
-   https://USERNAME.github.io/dompetku/
+   https://USERNAME.github.io/domku/
    ```
 
-### Step 4 (Opsional): Custom Domain
+### Step 4: Tambah Domain ke Firebase Auth
+1. Firebase Console → **Authentication** → **Settings** → **Authorized domains**
+2. Tambah `USERNAME.github.io` (dan custom domain jika ada)
+
+### Step 5 (Opsional): Custom Domain
 1. Di provider domain Anda, tambah record:
    - **A records** (4 IP GitHub Pages):
      - `185.199.108.153`
@@ -270,58 +303,48 @@ git push -u origin main
    - **CNAME** `www` → `USERNAME.github.io`
 2. Di GitHub: Settings → Pages → Custom domain → ketik domain → Save
 3. Centang **Enforce HTTPS**
-
----
-
-## Deployment ke Cloudflare Pages (Alternatif)
-
-1. Login ke https://dash.cloudflare.com → **Workers & Pages** → **Create** → **Pages**
-2. **Connect to Git** → pilih repository `dompetku`
-3. Konfigurasi build:
-   - Framework preset: **None**
-   - Build command: *(kosong)*
-   - Build output directory: `/` (root)
-4. **Save and Deploy**
-5. Custom domain: tambah di tab **Custom domains** (gratis SSL otomatis)
+4. Tambah custom domain ke Firebase Authorized domains
 
 ---
 
 ## Troubleshooting
 
-### App blank / data tidak muncul
-- Pastikan diakses via `http://` atau `https://`, bukan `file://`
-- Buka DevTools (F12) → Console → cek error
-- Coba hapus service worker: DevTools → Application → Service Workers → Unregister
+### "Firebase config belum diisi"
+Edit `assets/js/firebase-config.js` dengan config Anda yang sebenarnya dari Firebase Console.
+
+### Login Google gagal (popup blocked)
+Izinkan popup untuk domain Anda di browser settings.
+
+### Login Google gagal (unauthorized domain)
+Tambahkan domain Anda ke Firebase Console → Authentication → Settings → Authorized domains.
+
+### Data tidak sync real-time
+- Cek koneksi internet
+- Cek sync indicator di navbar (harus "Tersinkron")
+- DevTools → Application → Service Workers → Unregister → reload
+- Pastikan Firestore Security Rules sudah di-deploy
 
 ### PIN lupa
-- Buka DevTools → Application → IndexedDB → hapus database `dompetku-db`
+- Buka DevTools → Application → IndexedDB → hapus database `domku-cache`
 - Atau: Settings → Clear storage (browser settings)
-
-### Data hilang setelah update
-- IndexedDB persistence bervariasi antar browser. Lakukan **backup berkala** dari menu Pengaturan.
 
 ### Service Worker tidak update
 - DevTools → Application → Service Workers → **Update on reload** → refresh
 
-### Backup terenkripsi tidak bisa direstore
-- Pastikan password benar. Salah password = file tidak bisa didekripsi (by design, tidak ada recovery).
+### Data hilang setelah update
+- IndexedDB persistence bervariasi antar browser. Lakukan **backup berkala** dari menu Pengaturan.
 
 ---
 
 ## Privasi & Keamanan
 
-✅ **100% Offline** — tidak ada koneksi internet yang dibutuhkan  
-✅ **Tidak ada tracking** — tidak ada analytics, tidak ada ads  
-✅ **Data lokal** — semua data di IndexedDB, tidak pernah dikirim ke server  
-✅ **Enkripsi backup** — AES-GCM 256-bit dengan PBKDF2 key derivation  
-✅ **PIN hash** — SHA-256 + random salt (tidak disimpan plain)  
-✅ **Auto-lock** — kunci otomatis saat idle  
-
----
-
-## Lisensi
-
-Bebas digunakan untuk keperluan personal. Atribusi tidak wajib tapi dihargai.
+✅ **Offline-first** — aplikasi tetap jalan tanpa internet
+✅ **Data lokal + cloud** — IndexedDB cache + Firestore sync
+✅ **Tidak ada tracking** — tidak ada analytics, tidak ada ads
+✅ **Firestore Security Rules** — user hanya bisa akses wallet miliknya
+✅ **PIN hash** — SHA-256 + random salt
+✅ **Backup terenkripsi** — AES-GCM 256-bit dengan PBKDF2
+✅ **Audit log immutable** — setiap perubahan tercatat, tidak bisa dihapus
 
 ---
 
@@ -329,11 +352,17 @@ Bebas digunakan untuk keperluan personal. Atribusi tidak wajib tapi dihargai.
 
 - HTML5 (semantic, accessible)
 - CSS3 (custom properties, grid, flexbox)
-- JavaScript ES2020+ (Vanilla, no framework, no library)
-- IndexedDB (offline database)
+- JavaScript ES2020+ (Vanilla, no framework)
+- **Firebase v10+ modular SDK** (Auth, Firestore, Realtime listeners)
+- IndexedDB (offline cache)
 - Web Crypto API (encryption)
 - Service Worker + Cache API (offline PWA)
 - Canvas API (charts)
-- Notification API (reminders)
 
-**Total: 0 dependency. 0 KB library.**
+**Total: 0 dependency. 0 KB library (kecuali Firebase via CDN).**
+
+---
+
+## Lisensi
+
+Bebas digunakan untuk keperluan personal. Atribusi tidak wajib tapi dihargai.

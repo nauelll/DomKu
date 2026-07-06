@@ -1,7 +1,13 @@
 /* ============================================
-   DompetKu — app.js
-   Main entry point. Initializes DB, settings, theme, auth,
-   loads all page modules, starts router.
+   DomKu — app.js (v2 — Firebase edition)
+   Main entry point. Initializes:
+   - DB (cache + Firestore abstraction)
+   - Auth (Firebase Auth)
+   - Wallet (current wallet context)
+   - Sync (offline-first)
+   - Notify (real-time notifications)
+   - Migration dialog (local → cloud)
+   Keeps UI/UX exactly the same.
    ============================================ */
 
 (async function () {
@@ -12,10 +18,9 @@
     await new Promise((r) => document.addEventListener('DOMContentLoaded', r));
   }
 
-  // Hide app until ready
   const appRoot = document.getElementById('app');
 
-  // 1. Initialize DB + load settings
+  // 1. Initialize DB cache + load settings
   try {
     await DB.open();
     await Settings.load();
@@ -34,7 +39,18 @@
   // 2. Initialize theme
   Theme.init();
 
-  // 3. Build app shell
+  // 3. Initialize Firebase Auth + Wallet + Sync + Notify
+  if (window.Firebase && Firebase.isConfigured()) {
+    AuthFB.init();
+    Wallet.init();
+    Sync.init();
+    Notify.init();
+  } else {
+    console.warn('[DomKu] Firebase not configured — running offline-only mode');
+    Toast.warning('Firebase belum dikonfigurasi. Aplikasi jalan mode offline.', 4000);
+  }
+
+  // 4. Build app shell (same UI as before)
   appRoot.innerHTML = `
     <div class="app-shell" id="appShell">
       <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
@@ -48,65 +64,107 @@
   document.getElementById('sidebarMount').appendChild(Sidebar.render());
   document.getElementById('navbarMount').appendChild(Navbar.render());
 
-  // 4. Bind global actions
+  // 5. Bind global actions
   bindGlobalActions();
-
-  // 4b. Inject FAB for mobile (quick add transaction)
   injectFAB();
 
-  // 5. Register routes (pages already self-register on load)
+  // 6. Register not-found route
   Router.register('not-found', (c) => {
     c.innerHTML = `<div class="empty-state"><h2>404</h2><p>Halaman tidak ditemukan.</p><a href="#/dashboard" class="btn btn-primary">Kembali ke Dashboard</a></div>`;
   });
 
+  // 7. Auth-aware routing: set a before-hook that runs before each route render.
+  // Pages register themselves via Router.register; we don't override them.
+  Router.before(async (path, params) => {
+    // If Firebase not configured (offline-only mode), allow all routes
+    if (!Firebase.isConfigured()) return true;
+
+    // Auth guard: if not logged in, redirect to login (except login route)
+    if (!AuthFB.isLoggedIn) {
+      if (path !== 'login') {
+        location.hash = '#/login';
+        return false;
+      }
+      return true;
+    }
+
+    // Wallet guard: if logged in but no wallet, redirect to wallet (except allowed routes)
+    if (!Wallet.getCurrent()) {
+      const noWalletRoutes = ['login', 'wallet', 'not-found'];
+      if (!noWalletRoutes.includes(path)) {
+        location.hash = '#/wallet';
+        return false;
+      }
+    }
+
+    return true;
+  });
+
   Router.start(document.getElementById('pageMount'));
 
-  // 6. Auto-lock on idle
+  // 8. Auth state changes: refresh navbar + redirect appropriately
+  document.addEventListener('dompetku:auth', async (e) => {
+    Navbar.refresh?.();
+    if (e.detail.user) {
+      // Logged in
+      // Check if user has a wallet; if not, create personal wallet
+      const wallets = await Wallet.list();
+      if (wallets.length === 0) {
+        try {
+          await Wallet.create('Wallet Pribadi', 'personal', '💰');
+        } catch (e) {
+          console.warn('[App] Failed to create default wallet:', e);
+        }
+      } else if (!Wallet.getCurrent()) {
+        await Wallet.setCurrent(wallets[0].id);
+      }
+      // Check for migration (only if has local data + wallet set)
+      if (Wallet.getCurrent()) {
+        setTimeout(() => Migrate.checkAndPrompt(), 800);
+      }
+      // If on login page, redirect to dashboard
+      if (location.hash === '#/login' || location.hash === '') {
+        Router.go('dashboard');
+      }
+    } else {
+      // Logged out
+      if (location.hash !== '#/login' && Firebase.isConfigured()) {
+        Router.go('login');
+      }
+    }
+  });
+
+  // 9. Auto-lock on idle (kept from v1)
   ['click', 'keydown', 'touchstart'].forEach((evt) => {
     document.addEventListener(evt, () => Auth.pingActivity(), { passive: true });
   });
 
-  // 7. Initial reminder check (after 2 seconds to not block UI)
+  // 10. Reminders (kept from v1)
   setTimeout(() => {
     Reminders.regenerateDebtReminders();
     Reminders.checkDueReminders();
   }, 2000);
 
-  // 8. Auto-backup on first visit each day
-  if (Settings.get('autoBackup')) {
-    const last = Settings.get('lastBackupAt');
-    const today = Utils.todayISO();
-    if (!last || !last.startsWith(today)) {
-      // Only auto-backup if there's actual data
-      DB.getAll('transactions').then((txs) => {
-        if (txs.length > 0) {
-          // Don't auto-trigger download — just update timestamp
-          Settings.set('lastBackupAt', new Date().toISOString());
-        }
-      });
-    }
+  // 11. Refresh notifications count periodically
+  if (window.Notify && Firebase.isConfigured()) {
+    setTimeout(() => Notify.refreshUnreadCount(), 3000);
+    setInterval(() => Notify.refreshUnreadCount(), 60000);
   }
 
   /* ---------- Helpers ---------- */
 
   function injectFAB() {
-    // Only show FAB on mobile (screen width <= 768)
     if (window.innerWidth > 768) return;
-    // Don't double-inject
     if (document.querySelector('.fab')) return;
-
     const fab = document.createElement('button');
     fab.className = 'fab';
     fab.setAttribute('aria-label', 'Tambah transaksi cepat');
     fab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
     fab.addEventListener('click', () => {
-      // Show a quick menu: income or expense
       const choice = confirm('OK = Tambah Pemasukan\nCancel = Tambah Pengeluaran');
       TransactionForm.open({ type: choice ? 'income' : 'expense', onSaved: () => Router.refresh() });
     });
     document.body.appendChild(fab);
-
-    // Show/hide FAB on window resize
     let resizeTimer;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
@@ -126,20 +184,19 @@
       else if (act === 'toggle-sidebar') {
         document.getElementById('appShell').classList.toggle('sidebar-open');
       } else if (act === 'quick-add') {
-        // Show a small menu
         const choice = confirm('OK = Pemasukan, Cancel = Pengeluaran');
         TransactionForm.open({ type: choice ? 'income' : 'expense', onSaved: () => Router.refresh() });
       } else if (act === 'lock') {
         Auth.lock();
+      } else if (act === 'logout') {
+        if (confirm('Yakin ingin keluar?')) AuthFB.signOut();
       }
     });
 
-    // Close sidebar when clicking outside on mobile
     document.getElementById('sidebarBackdrop').addEventListener('click', () => {
       document.getElementById('appShell').classList.remove('sidebar-open');
     });
 
-    // Close sidebar on nav click (mobile)
     document.getElementById('sidebarMount').addEventListener('click', (e) => {
       if (e.target.closest('[data-nav]')) {
         document.getElementById('appShell').classList.remove('sidebar-open');

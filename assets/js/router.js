@@ -11,8 +11,12 @@
   let currentRoute = null;
   let currentCleanup = null;
   let container = null;
+  let beforeHook = null; // optional hook called before route render
 
   function register(path, handler) { routes[path] = handler; }
+
+  /** Set a hook called before each route render. Hook can return false to abort. */
+  function before(fn) { beforeHook = fn; }
 
   function parseHash() {
     const hash = location.hash.replace(/^#\/?/, '');
@@ -30,6 +34,13 @@
   async function render() {
     if (!container) return;
     const { path, params } = parseHash();
+
+    // Run before-hook (auth guard etc.) — if it returns false, abort
+    if (typeof beforeHook === 'function') {
+      const allowed = await beforeHook(path, params);
+      if (allowed === false) return;
+    }
+
     const route = routes[path] || routes['not-found'];
 
     // Run cleanup for previous route
@@ -71,5 +82,5 @@
 
   function refresh() { render(); }
 
-  global.Router = { register, start, go, refresh, get current() { return currentRoute; } };
+  global.Router = { register, start, go, refresh, before, get current() { return currentRoute; } };
 })(window);

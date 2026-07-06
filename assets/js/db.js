@@ -1,220 +1,452 @@
 /* ============================================
-   DompetKu — db.js
-   IndexedDB wrapper. Promise-based, modular, transactional.
-   All financial data lives here — fully offline.
+   DomKu — db.js (Data Access Layer v2)
+   Abstraction layer: Firestore (cloud) + IndexedDB (offline cache).
+   Existing code calls DB.getAll('transactions') etc — unchanged.
+   Internally routes to Firestore when online, IndexedDB when offline.
+   Real-time updates dispatched via 'dompetku:data-change' event.
    ============================================ */
 
 (function (global) {
   'use strict';
 
-  const DB_NAME = 'dompetku-db';
+  const DB_NAME = 'domku-cache';
   const DB_VERSION = 1;
 
-  // Object stores schema — defined here so other modules can introspect.
+  // Object stores — used as offline cache. Same schema as before.
   const STORES = {
-    transactions: { keyPath: 'id', indexes: [
-      ['type', 'type', { unique: false }],
-      ['category', 'category', { unique: false }],
-      ['date', 'date', { unique: false }],
-      ['createdAt', 'createdAt', { unique: false }]
-    ]},
-    categories: { keyPath: 'id', indexes: [
-      ['type', 'type', { unique: false }],
-      ['name', 'name', { unique: false }]
-    ]},
-    debts: { keyPath: 'id', indexes: [
-      ['status', 'status', { unique: false }],
-      ['dueDate', 'dueDate', { unique: false }]
-    ]},
-    debtPayments: { keyPath: 'id', indexes: [
-      ['debtId', 'debtId', { unique: false }],
-      ['date', 'date', { unique: false }]
-    ]},
-    receivables: { keyPath: 'id', indexes: [
-      ['status', 'status', { unique: false }],
-      ['dueDate', 'dueDate', { unique: false }]
-    ]},
-    receivablePayments: { keyPath: 'id', indexes: [
-      ['receivableId', 'receivableId', { unique: false }]
-    ]},
-    savings: { keyPath: 'id', indexes: [
-      ['status', 'status', { unique: false }]
-    ]},
-    savingTransactions: { keyPath: 'id', indexes: [
-      ['savingId', 'savingId', { unique: false }],
-      ['date', 'date', { unique: false }]
-    ]},
-    assets: { keyPath: 'id', indexes: [
-      ['type', 'type', { unique: false }]
-    ]},
-    budgets: { keyPath: 'id', indexes: [
-      ['category', 'category', { unique: false }],
-      ['month', 'month', { unique: false }]
-    ]},
-    reminders: { keyPath: 'id', indexes: [
-      ['dueDate', 'dueDate', { unique: false }],
-      ['done', 'done', { unique: false }]
-    ]},
-    settings: { keyPath: 'key' }, // key-value store for app settings
-    attachments: { keyPath: 'id' } // blob storage for receipt photos
+    transactions: { keyPath: 'id', indexes: [['type','type',{unique:false}],['category','category',{unique:false}],['date','date',{unique:false}],['createdAt','createdAt',{unique:false}]] },
+    categories: { keyPath: 'id', indexes: [['type','type',{unique:false}],['name','name',{unique:false}]] },
+    debts: { keyPath: 'id', indexes: [['status','status',{unique:false}],['dueDate','dueDate',{unique:false}]] },
+    debtPayments: { keyPath: 'id', indexes: [['debtId','debtId',{unique:false}],['date','date',{unique:false}]] },
+    receivables: { keyPath: 'id', indexes: [['status','status',{unique:false}],['dueDate','dueDate',{unique:false}]] },
+    receivablePayments: { keyPath: 'id', indexes: [['receivableId','receivableId',{unique:false}]] },
+    savings: { keyPath: 'id', indexes: [['status','status',{unique:false}]] },
+    savingTransactions: { keyPath: 'id', indexes: [['savingId','savingId',{unique:false}],['date','date',{unique:false}]] },
+    assets: { keyPath: 'id', indexes: [['type','type',{unique:false}]] },
+    budgets: { keyPath: 'id', indexes: [['category','category',{unique:false}],['month','month',{unique:false}]] },
+    reminders: { keyPath: 'id', indexes: [['dueDate','dueDate',{unique:false}],['done','done',{unique:false}]] },
+    settings: { keyPath: 'key' },
+    attachments: { keyPath: 'id' },
+    // New stores for migration:
+    pendingOps: { keyPath: 'id', indexes: [['store','store',{unique:false}]] }, // queue of offline writes
+    auditLogs: { keyPath: 'id', indexes: [['createdAt','createdAt',{unique:false}]] }
   };
 
   let dbInstance = null;
+  let currentWalletId = null; // active wallet ID
+  let isSyncing = false;
+  const unsubListeners = new Map(); // store -> unsubscribe function
 
-  /** Open (or upgrade) the database. Cached after first call. */
+  /* ---------- IndexedDB helpers (kept from v1) ---------- */
   function open() {
     if (dbInstance) return Promise.resolve(dbInstance);
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
-        // Create each store + indexes
         Object.entries(STORES).forEach(([name, def]) => {
           if (!db.objectStoreNames.contains(name)) {
-            const store = db.createObjectStore(name, {
-              keyPath: def.keyPath,
-              autoIncrement: false
-            });
-            (def.indexes || []).forEach(([idxName, keyPath, opts]) => {
-              store.createIndex(idxName, keyPath, opts || {});
-            });
+            const store = db.createObjectStore(name, { keyPath: def.keyPath, autoIncrement: false });
+            (def.indexes || []).forEach(([idxName, keyPath, opts]) => store.createIndex(idxName, keyPath, opts || {}));
           }
         });
       };
-      req.onsuccess = (e) => {
-        dbInstance = e.target.result;
-        // Handle connection drops
-        dbInstance.onversionchange = () => dbInstance.close();
-        resolve(dbInstance);
-      };
+      req.onsuccess = (e) => { dbInstance = e.target.result; dbInstance.onversionchange = () => dbInstance.close(); resolve(dbInstance); };
       req.onerror = () => reject(req.error);
     });
   }
 
-  /** Generate a unique ID (timestamp + random suffix). */
-  function uid() {
-    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-  }
+  function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 
-  /** Promisify a single IDB request. */
   function p(req) {
-    return new Promise((resolve, reject) => {
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
+    return new Promise((resolve, reject) => { req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
   }
 
-  /**
-   * Run a transaction across one or more stores.
-   * @param {string[]} storeNames
-   * @param {'readonly'|'readwrite'} mode
-   * @param {function(IDBTransaction, Object<string,IDBObjectStore>):Promise|void} fn
-   */
   async function tx(storeNames, mode, fn) {
     const db = await open();
     storeNames = Array.isArray(storeNames) ? storeNames : [storeNames];
     const transaction = db.transaction(storeNames, mode);
     const stores = {};
-    storeNames.forEach((name) => stores[name] = transaction.objectStore(name));
+    storeNames.forEach((n) => stores[n] = transaction.objectStore(n));
     let result;
-    try {
-      result = await fn(transaction, stores);
-    } catch (err) {
-      transaction.abort();
-      throw err;
-    }
+    try { result = await fn(transaction, stores); } catch (err) { transaction.abort(); throw err; }
     return new Promise((resolve, reject) => {
       transaction.oncomplete = () => resolve(result);
       transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error || new Error('Transaction aborted'));
+      transaction.onabort = () => reject(transaction.error || new Error('aborted'));
     });
   }
 
-  /* ================= CRUD helpers ================= */
-
-  async function add(storeName, value) {
+  /* ---------- IndexedDB direct ops ---------- */
+  async function idbAdd(store, value) {
     if (!value.id) value.id = uid();
-    value.createdAt = value.createdAt || new Date().toISOString();
+    if (!value.createdAt) value.createdAt = new Date().toISOString();
     value.updatedAt = new Date().toISOString();
-    return tx(storeName, 'readwrite', (_, stores) => p(stores[storeName].add(value))).then(() => value);
+    return tx(store, 'readwrite', (_, s) => p(s[store].add(value))).then(() => value);
   }
-
-  async function put(storeName, value) {
+  async function idbPut(store, value) {
     value.updatedAt = new Date().toISOString();
-    return tx(storeName, 'readwrite', (_, stores) => p(stores[storeName].put(value))).then(() => value);
+    return tx(store, 'readwrite', (_, s) => p(s[store].put(value))).then(() => value);
   }
-
-  async function get(storeName, id) {
+  async function idbGet(store, id) {
     const db = await open();
-    return p(db.transaction(storeName, 'readonly').objectStore(storeName).get(id));
+    return p(db.transaction(store, 'readonly').objectStore(store).get(id));
   }
-
-  async function getAll(storeName) {
+  async function idbGetAll(store) {
     const db = await open();
-    return p(db.transaction(storeName, 'readonly').objectStore(storeName).getAll());
+    return p(db.transaction(store, 'readonly').objectStore(store).getAll());
   }
-
-  async function remove(storeName, id) {
-    return tx(storeName, 'readwrite', (_, stores) => p(stores[storeName].delete(id)));
+  async function idbRemove(store, id) {
+    return tx(store, 'readwrite', (_, s) => p(s[store].delete(id)));
   }
-
-  async function clear(storeName) {
-    return tx(storeName, 'readwrite', (_, stores) => p(stores[storeName].clear()));
+  async function idbClear(store) {
+    return tx(store, 'readwrite', (_, s) => p(s[store].clear()));
   }
-
-  /** Query by index equality. */
-  async function getByIndex(storeName, indexName, value) {
+  async function idbGetByIndex(store, index, value) {
     const db = await open();
-    const idx = db.transaction(storeName, 'readonly').objectStore(storeName).index(indexName);
-    return p(idx.getAll(value));
+    return p(db.transaction(store, 'readonly').objectStore(store).index(index).getAll(value));
   }
-
-  /** Generic filter via callback on all records. */
-  async function filter(storeName, predicate) {
-    const all = await getAll(storeName);
-    return all.filter(predicate);
-  }
-
-  /** Bulk insert (used by import). Skips duplicate IDs. */
-  async function bulkPut(storeName, items) {
+  async function idbBulkPut(store, items) {
     if (!items || !items.length) return;
-    return tx(storeName, 'readwrite', (_, stores) => {
-      const store = stores[storeName];
-      items.forEach((item) => {
-        if (!item.id) item.id = uid();
-        store.put(item);
+    return tx(store, 'readwrite', (_, s) => { items.forEach((item) => { if (!item.id) item.id = uid(); s[store].put(item); }); });
+  }
+
+  /* ---------- Pending ops queue (offline writes) ---------- */
+  async function queuePending(store, op, data) {
+    const entry = { id: uid(), store, op, data, walletId: currentWalletId, createdAt: new Date().toISOString() };
+    return tx('pendingOps', 'readwrite', (_, s) => p(s['pendingOps'].add(entry)));
+  }
+  async function getPending() { return idbGetAll('pendingOps'); }
+  async function removePending(id) { return idbRemove('pendingOps', id); }
+
+  /* ---------- Firestore ops ---------- */
+  function fsConfigured() { return global.Firebase && Firebase.isConfigured() && Firebase.db && currentWalletId; }
+  function fsCol(store) { return Firebase.collection(Firebase.db, 'wallets', currentWalletId, store); }
+  function fsDoc(store, id) { return Firebase.doc(Firebase.db, 'wallets', currentWalletId, store, id); }
+
+  async function fsGetAll(store) {
+    if (!fsConfigured()) return null;
+    try {
+      const snap = await Firebase.getDocs(fsCol(store));
+      return snap.docs.map((d) => d.data());
+    } catch (e) {
+      console.warn('[DB] fsGetAll failed, fallback to cache:', e);
+      return null;
+    }
+  }
+
+  async function fsPut(store, value) {
+    if (!fsConfigured()) return null;
+    try {
+      // Strip id from data (it's the doc id)
+      const { id, ...data } = value;
+      await Firebase.setDoc(fsDoc(store, id || value.id), { ...data, id: id || value.id, updatedAt: Firebase.serverTimestamp() }, { merge: true });
+      return value;
+    } catch (e) {
+      console.warn('[DB] fsPut failed, queuing:', e);
+      return null;
+    }
+  }
+
+  async function fsRemove(store, id) {
+    if (!fsConfigured()) return false;
+    try {
+      await Firebase.deleteDoc(fsDoc(store, id));
+      return true;
+    } catch (e) {
+      console.warn('[DB] fsRemove failed, queuing:', e);
+      return false;
+    }
+  }
+
+  /* ---------- Real-time listeners ---------- */
+  function startListener(store) {
+    if (!fsConfigured()) return;
+    if (unsubListeners.has(store)) return; // already listening
+    try {
+      const unsub = Firebase.onSnapshot(fsCol(store), (snap) => {
+        const items = snap.docs.map((d) => d.data());
+        // Update IndexedDB cache
+        idbClear(store).then(() => idbBulkPut(store, items)).then(() => {
+          // Notify app
+          document.dispatchEvent(new CustomEvent('dompetku:data-change', { detail: { store, items } }));
+        });
+      }, (err) => {
+        console.warn(`[DB] Listener error for ${store}:`, err);
       });
-    });
-  }
-
-  /** Export entire database as a plain object. */
-  async function exportAll() {
-    const result = {};
-    for (const name of Object.keys(STORES)) {
-      result[name] = await getAll(name);
-    }
-    return { version: DB_VERSION, exportedAt: new Date().toISOString(), data: result };
-  }
-
-  /** Wipe all stores and import fresh data. */
-  async function importAll(data) {
-    const stores = Object.keys(STORES);
-    // Clear all then bulk-insert
-    for (const name of stores) await clear(name);
-    for (const name of stores) {
-      if (data[name] && Array.isArray(data[name])) {
-        await bulkPut(name, data[name]);
-      }
+      unsubListeners.set(store, unsub);
+    } catch (e) {
+      console.warn(`[DB] Failed to start listener for ${store}:`, e);
     }
   }
+  function stopListener(store) {
+    const unsub = unsubListeners.get(store);
+    if (unsub) { try { unsub(); } catch (e) {} unsubListeners.delete(store); }
+  }
+  function stopAllListeners() {
+    unsubListeners.forEach((unsub) => { try { unsub(); } catch (e) {} });
+    unsubListeners.clear();
+  }
 
-  global.DB = {
+  /* ---------- Public API (compatible with old DB) ----------
+     Same signatures: DB.add(store, value), DB.put, DB.get, DB.getAll,
+     DB.remove, DB.clear, DB.getByIndex, DB.bulkPut, DB.filter,
+     DB.exportAll, DB.importAll, DB.uid
+  */
+  const DB = {
     STORES,
     open,
     uid,
     tx,
-    add, put, get, getAll, remove, clear,
-    getByIndex, filter, bulkPut,
-    exportAll, importAll
+
+    /** Set active wallet ID — starts real-time listeners. */
+    async setWallet(walletId) {
+      if (currentWalletId === walletId) return;
+      stopAllListeners();
+      currentWalletId = walletId;
+      if (!walletId) return;
+      // Start listeners for all data stores (except pendingOps, settings, auditLogs)
+      const listenStores = ['transactions','categories','debts','debtPayments','receivables','receivablePayments','savings','savingTransactions','assets','budgets','reminders','attachments'];
+      listenStores.forEach(startListener);
+    },
+    getWallet() { return currentWalletId; },
+
+    async add(store, value) {
+      if (!value.id) value.id = uid();
+      if (!value.createdAt) value.createdAt = new Date().toISOString();
+      value.updatedAt = new Date().toISOString();
+      value.walletId = currentWalletId;
+      // 1. Write to cache immediately
+      await idbPut(store, value);
+      // 2. Try cloud; queue if fails
+      const cloudOk = await fsPut(store, value);
+      if (!cloudOk) await queuePending(store, 'put', value);
+      // 3. Audit + notify handled by caller
+      return value;
+    },
+
+    async put(store, value) {
+      value.updatedAt = new Date().toISOString();
+      value.walletId = currentWalletId;
+      await idbPut(store, value);
+      const cloudOk = await fsPut(store, value);
+      if (!cloudOk) await queuePending(store, 'put', value);
+      return value;
+    },
+
+    async get(store, id) {
+      // Try cache first (fast)
+      const cached = await idbGet(store, id);
+      if (cached) return cached;
+      // Fallback to cloud
+      if (fsConfigured()) {
+        try {
+          const snap = await Firebase.getDoc(fsDoc(store, id));
+          if (snap.exists()) {
+            const data = snap.data();
+            await idbPut(store, data); // populate cache
+            return data;
+          }
+        } catch (e) { /* ignore */ }
+      }
+      return null;
+    },
+
+    async getAll(store) {
+      // If offline listener is active, return cache (already up-to-date)
+      // Else, try cloud first, fallback to cache
+      if (unsubListeners.has(store)) {
+        return idbGetAll(store);
+      }
+      if (fsConfigured() && Firebase.isOnline()) {
+        const cloud = await fsGetAll(store);
+        if (cloud) {
+          // Update cache
+          await idbClear(store);
+          await idbBulkPut(store, cloud);
+          return cloud;
+        }
+      }
+      return idbGetAll(store);
+    },
+
+    async remove(store, id) {
+      await idbRemove(store, id);
+      const cloudOk = await fsRemove(store, id);
+      if (!cloudOk) await queuePending(store, 'delete', { id });
+    },
+
+    async clear(store) {
+      await idbClear(store);
+      // Cloud: delete all docs (only if configured)
+      if (fsConfigured()) {
+        try {
+          const snap = await Firebase.getDocs(fsCol(store));
+          const batch = Firebase.writeBatch(Firebase.db);
+          snap.docs.forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+        } catch (e) { console.warn('[DB] clear cloud failed:', e); }
+      }
+    },
+
+    async getByIndex(store, index, value) {
+      // Use cache (IndexedDB has indexes)
+      return idbGetByIndex(store, index, value);
+    },
+
+    async filter(store, predicate) {
+      const all = await this.getAll(store);
+      return all.filter(predicate);
+    },
+
+    async bulkPut(store, items) {
+      // For import/migration
+      if (!items || !items.length) return;
+      items.forEach((item) => {
+        if (!item.id) item.id = uid();
+        item.walletId = currentWalletId;
+        if (!item.createdAt) item.createdAt = new Date().toISOString();
+        item.updatedAt = new Date().toISOString();
+      });
+      await idbBulkPut(store, items);
+      // Cloud: batch write
+      if (fsConfigured()) {
+        try {
+          // Batch in chunks of 400 (Firestore limit)
+          for (let i = 0; i < items.length; i += 400) {
+            const chunk = items.slice(i, i + 400);
+            const batch = Firebase.writeBatch(Firebase.db);
+            chunk.forEach((item) => batch.set(fsDoc(store, item.id), { ...item, updatedAt: Firebase.serverTimestamp() }, { merge: true }));
+            await batch.commit();
+          }
+        } catch (e) {
+          console.warn('[DB] bulkPut cloud failed, queued individually:', e);
+          // Queue each as pending
+          for (const item of items) await queuePending(store, 'put', item);
+        }
+      }
+    },
+
+    async exportAll() {
+      const result = {};
+      for (const name of Object.keys(STORES)) {
+        if (name === 'pendingOps') continue;
+        result[name] = await idbGetAll(name);
+      }
+      return { version: DB_VERSION, exportedAt: new Date().toISOString(), data: result };
+    },
+
+    async importAll(data) {
+      const stores = Object.keys(STORES).filter((s) => s !== 'pendingOps');
+      for (const name of stores) await idbClear(name);
+      for (const name of stores) {
+        if (data[name] && Array.isArray(data[name])) {
+          await this.bulkPut(name, data[name]);
+        }
+      }
+    },
+
+    /* ---------- Migration helpers ---------- */
+    /** Get all data from cache (without going to cloud). For migration dialog. */
+    async getLocalData() {
+      const result = {};
+      for (const name of Object.keys(STORES)) {
+        if (name === 'pendingOps') continue;
+        result[name] = await idbGetAll(name);
+      }
+      return result;
+    },
+
+    /** Check if local cache has any user data. */
+    async hasLocalData() {
+      const stores = ['transactions','debts','savings','assets','receivables'];
+      for (const s of stores) {
+        const items = await idbGetAll(s);
+        if (items.length > 0) return true;
+      }
+      return false;
+    },
+
+    /** Wipe local cache (after migration or reset). */
+    async wipeLocal() {
+      for (const name of Object.keys(STORES)) {
+        await idbClear(name);
+      }
+    },
+
+    /* ---------- Sync engine ---------- */
+    async syncPending() {
+      if (isSyncing || !fsConfigured()) return;
+      isSyncing = true;
+      document.dispatchEvent(new CustomEvent('dompetku:sync', { detail: { status: 'syncing' } }));
+      try {
+        const pending = await getPending();
+        let success = 0, failed = 0;
+        for (const op of pending) {
+          try {
+            if (op.op === 'put') await Firebase.setDoc(fsDoc(op.store, op.data.id), { ...op.data, updatedAt: Firebase.serverTimestamp() }, { merge: true });
+            else if (op.op === 'delete') await Firebase.deleteDoc(fsDoc(op.store, op.data.id));
+            await removePending(op.id);
+            success++;
+          } catch (e) {
+            console.warn('[DB] Sync op failed:', e);
+            failed++;
+            break; // stop on first error (likely offline)
+          }
+        }
+        document.dispatchEvent(new CustomEvent('dompetku:sync', { detail: { status: 'done', success, failed } }));
+        if (success > 0 && failed === 0) {
+          Toast.success(`${success} perubahan tersinkron`, 1800);
+        }
+      } catch (e) {
+        document.dispatchEvent(new CustomEvent('dompetku:sync', { detail: { status: 'error', error: e.message } }));
+      } finally {
+        isSyncing = false;
+      }
+    },
+
+    isSyncing: () => isSyncing,
+    hasPending: async () => (await idbGetAll('pendingOps')).length > 0,
+
+    /* ---------- Listener control ---------- */
+    startListener, stopListener, stopAllListeners,
+
+    /* ---------- Audit log (public) ---------- */
+    async log(action, entity, entityId, details = {}) {
+      if (!currentWalletId) return;
+      const user = global.AuthFB?.currentUser;
+      const entry = {
+        id: uid(),
+        walletId: currentWalletId,
+        userId: user?.uid || 'unknown',
+        userName: user?.displayName || user?.email || 'Saya',
+        userPhoto: user?.photoURL || '',
+        action, // 'create', 'update', 'delete', 'login', etc.
+        entity, // 'transaction', 'debt', 'saving', etc.
+        entityId,
+        details,
+        createdAt: new Date().toISOString()
+      };
+      await idbPut('auditLogs', entry);
+      if (fsConfigured()) {
+        try {
+          await Firebase.addDoc(Firebase.collection(Firebase.db, 'wallets', currentWalletId, 'auditLogs'), entry);
+        } catch (e) { /* audit failure non-critical */ }
+      }
+    },
+
+    async getAuditLogs(limit = 50) {
+      if (fsConfigured() && Firebase.isOnline()) {
+        try {
+          const q = Firebase.query(Firebase.collection(Firebase.db, 'wallets', currentWalletId, 'auditLogs'), Firebase.orderBy('createdAt', 'desc'), Firebase.limit(limit));
+          const snap = await Firebase.getDocs(q);
+          return snap.docs.map((d) => d.data());
+        } catch (e) { /* fall through to cache */ }
+      }
+      const all = await idbGetAll('auditLogs');
+      return all.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, limit);
+    }
   };
+
+  global.DB = DB;
 })(window);

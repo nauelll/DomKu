@@ -100,6 +100,10 @@
   <!-- ============ Scripts ============ -->
   <!-- Order matters: utils, db, settings, theme, auth first; then UI; then components; then pages; finally app.js -->
 
+  <!-- Firebase config + modular SDK (ES module) -->
+  <script src="assets/js/firebase-config.js"></script>
+  <script type="module" src="assets/js/firebase.js"></script>
+
   <!-- Core -->
   <script src="assets/js/utils.js"></script>
   <script src="assets/js/crypto.js"></script>
@@ -107,6 +111,11 @@
   <script src="assets/js/settings.js"></script>
   <script src="assets/js/theme.js"></script>
   <script src="assets/js/auth.js"></script>
+  <script src="assets/js/auth-firebase.js"></script>
+  <script src="assets/js/sync.js"></script>
+  <script src="assets/js/wallet.js"></script>
+  <script src="assets/js/notify.js"></script>
+  <script src="assets/js/migrate.js"></script>
   <script src="assets/js/toast.js"></script>
   <script src="assets/js/modal.js"></script>
   <script src="assets/js/charts.js"></script>
@@ -131,6 +140,7 @@
   <script src="assets/components/budget-form.js"></script>
 
   <!-- Pages -->
+  <script src="assets/pages/login.js"></script>
   <script src="assets/pages/dashboard.js"></script>
   <script src="assets/pages/transactions.js"></script>
   <script src="assets/pages/debts.js"></script>
@@ -141,6 +151,9 @@
   <script src="assets/pages/reports.js"></script>
   <script src="assets/pages/calendar.js"></script>
   <script src="assets/pages/search.js"></script>
+  <script src="assets/pages/wallet.js"></script>
+  <script src="assets/pages/notifications.js"></script>
+  <script src="assets/pages/audit.js"></script>
   <script src="assets/pages/settings-page.js"></script>
 
   <!-- App entry -->

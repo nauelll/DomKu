@@ -1,0 +1,133 @@
+// ============================================
+// DomKu — firestore.rules
+// Security rules for DomKu Firestore database.
+// Deploy with: firebase deploy --only firestore:rules
+// ============================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    function isWalletMember(walletId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/wallets/$(walletId)) &&
+        get(/databases/$(database)/documents/wallets/$(walletId)).data.members[request.auth.uid] == true;
+    }
+    function isWalletOwner(walletId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/wallets/$(walletId)) &&
+        get(/databases/$(database)/documents/wallets/$(walletId)).data.ownerId == request.auth.uid;
+    }
+
+    // Users — each user can only read/write own doc
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // users cannot delete themselves via client
+    }
+
+    // Wallets — accessible only to members
+    match /wallets/{walletId} {
+      allow read: if isWalletMember(walletId);
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == true;
+      allow update: if isWalletMember(walletId);
+      allow delete: if isWalletOwner(walletId);
+
+      // Sub-collections under each wallet
+      match /transactions/{txId} {
+        allow read: if isWalletMember(walletId);
+        allow create: if isWalletMember(walletId)
+                      && request.resource.data.walletId == walletId;
+        allow update, delete: if isWalletMember(walletId);
+      }
+      match /categories/{catId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /debts/{debtId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /debtPayments/{payId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /receivables/{recId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /receivablePayments/{payId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /savings/{savId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /savingTransactions/{txId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /assets/{assetId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /budgets/{budId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /reminders/{remId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /auditLogs/{logId} {
+        allow read: if isWalletMember(walletId);
+        allow create: if isWalletMember(walletId);
+        allow update, delete: if false; // audit logs immutable
+      }
+      match /attachments/{attId} {
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+      match /settings/{setId} {
+        // Per-user settings within shared wallet
+        allow read: if isWalletMember(walletId);
+        allow write: if isWalletMember(walletId);
+      }
+    }
+
+    // Invitations — only the inviter & invitee can read
+    match /invitations/{invId} {
+      allow read: if isSignedIn() &&
+        (resource.data.inviterId == request.auth.uid ||
+         resource.data.inviteeEmail == request.auth.token.email);
+      allow create: if isSignedIn() && request.resource.data.inviterId == request.auth.uid;
+      allow update: if isSignedIn() &&
+        (resource.data.inviterId == request.auth.uid ||
+         resource.data.inviteeEmail == request.auth.token.email);
+      allow delete: if isSignedIn() &&
+        (resource.data.inviterId == request.auth.uid ||
+         resource.data.inviteeEmail == request.auth.token.email);
+    }
+
+    // Notifications — each user only sees own notifications
+    match /notifications/{notifId} {
+      allow read, write: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

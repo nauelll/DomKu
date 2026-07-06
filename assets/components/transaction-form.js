@@ -106,6 +106,8 @@
         createdAt: edit?.createdAt || new Date().toISOString()
       };
       await DB.put('transactions', record);
+      // Audit log + notify partner
+      await DB.log(edit ? 'update' : 'create', 'transaction', record.id, { type: record.type, amount: record.amount, category: record.categoryName });
       Toast.success(`${currentType === 'income' ? 'Pemasukan' : 'Pengeluaran'} ${isEdit ? 'diperbarui' : 'ditambahkan'}`);
       if (typeof onSaved === 'function') onSaved(record);
       // Close modal
