@@ -11,6 +11,7 @@
   let isUnlocked = false;
   let lockTimer = null;
   let lastActivity = Date.now();
+  let _activityTimer = null;
 
   const Auth = {
     /** True if user has set any PIN/password. */
@@ -71,10 +72,16 @@
       document.dispatchEvent(new CustomEvent(LOCK_EVENT, { detail: { unlocked: false } }));
     },
 
-    /** Track activity (called from main click/keypress listener). */
+    /** Track activity (called from main click/keypress listener). Debounced to avoid overhead. */
     pingActivity() {
       lastActivity = Date.now();
-      if (isUnlocked) this.scheduleAutoLock();
+      if (!isUnlocked) return;
+      // Debounce: only reschedule auto-lock once per second, not every keystroke
+      if (_activityTimer) return;
+      _activityTimer = setTimeout(() => {
+        _activityTimer = null;
+        if (isUnlocked) Auth.scheduleAutoLock();
+      }, 1000);
     },
 
     scheduleAutoLock() {

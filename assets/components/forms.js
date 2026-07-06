@@ -76,7 +76,7 @@
 
       /**
        * Handle input event: format value + restore cursor.
-       * Uses requestAnimationFrame for reliable cursor positioning across browsers.
+       * Synchronous cursor positioning (no requestAnimationFrame) for zero-latency feel.
        */
       function formatInput() {
         const cursorPos = input.selectionStart || 0;
@@ -86,12 +86,10 @@
         // Always update value (even if same, to ensure consistency)
         input.value = result.value;
 
-        // Restore cursor on next frame (more reliable than synchronous setSelectionRange)
-        requestAnimationFrame(() => {
-          try {
-            input.setSelectionRange(result.cursorPos, result.cursorPos);
-          } catch (e) { /* ignore */ }
-        });
+        // Restore cursor synchronously (no rAF delay)
+        try {
+          input.setSelectionRange(result.cursorPos, result.cursorPos);
+        } catch (e) { /* ignore */ }
       }
 
       input.addEventListener('input', formatInput);

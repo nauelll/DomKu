@@ -4,7 +4,7 @@
    network-first for navigations with offline fallback.
    ============================================ */
 
-const CACHE_VERSION = 'domku-v6';
+const CACHE_VERSION = 'domku-v8';
 const APP_SHELL = [
   './',
   './index.html',

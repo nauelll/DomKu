@@ -216,21 +216,29 @@
       if (!value.createdAt) value.createdAt = new Date().toISOString();
       value.updatedAt = new Date().toISOString();
       value.walletId = currentWalletId;
-      // 1. Write to cache immediately
+      // 1. Write to cache immediately (instant, synchronous-feeling)
       await idbPut(store, value);
-      // 2. Try cloud; queue if fails
-      const cloudOk = await fsPut(store, value);
-      if (!cloudOk) await queuePending(store, 'put', value);
-      // 3. Audit + notify handled by caller
+      // 2. Sync to cloud in BACKGROUND (don't block UI)
+      // If cloud fails, queue for retry — but don't wait for it
+      if (fsConfigured()) {
+        fsPut(store, value).then((ok) => {
+          if (!ok) queuePending(store, 'put', value);
+        }).catch(() => queuePending(store, 'put', value));
+      }
       return value;
     },
 
     async put(store, value) {
       value.updatedAt = new Date().toISOString();
       value.walletId = currentWalletId;
+      // 1. Write to cache immediately
       await idbPut(store, value);
-      const cloudOk = await fsPut(store, value);
-      if (!cloudOk) await queuePending(store, 'put', value);
+      // 2. Sync to cloud in BACKGROUND
+      if (fsConfigured()) {
+        fsPut(store, value).then((ok) => {
+          if (!ok) queuePending(store, 'put', value);
+        }).catch(() => queuePending(store, 'put', value));
+      }
       return value;
     },
 
@@ -253,27 +261,34 @@
     },
 
     async getAll(store) {
-      // If offline listener is active, return cache (already up-to-date)
-      // Else, try cloud first, fallback to cache
-      if (unsubListeners.has(store)) {
-        return idbGetAll(store);
+      // ALWAYS return from IndexedDB cache first (instant, zero-latency).
+      // Firestore listener will update cache in background when data changes.
+      // Only fetch from cloud if cache is completely empty AND no listener active.
+      const cached = await idbGetAll(store);
+      if (cached.length > 0 || unsubListeners.has(store)) {
+        return cached; // fast path: serve from cache
       }
+      // Slow path: cache empty + no listener → try cloud once
       if (fsConfigured() && Firebase.isOnline()) {
         const cloud = await fsGetAll(store);
         if (cloud) {
-          // Update cache
           await idbClear(store);
           await idbBulkPut(store, cloud);
           return cloud;
         }
       }
-      return idbGetAll(store);
+      return cached;
     },
 
     async remove(store, id) {
+      // 1. Delete from cache immediately
       await idbRemove(store, id);
-      const cloudOk = await fsRemove(store, id);
-      if (!cloudOk) await queuePending(store, 'delete', { id });
+      // 2. Sync to cloud in BACKGROUND
+      if (fsConfigured()) {
+        fsRemove(store, id).then((ok) => {
+          if (!ok) queuePending(store, 'delete', { id });
+        }).catch(() => queuePending(store, 'delete', { id }));
+      }
     },
 
     async clear(store) {
